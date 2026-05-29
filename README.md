@@ -1,3 +1,61 @@
+# Crypto Pay (MVP)
+
+Venmo-like **USDC on Base** payments with **embedded wallets** (Privy), **usernames**, and **pay-by-link** sessions.
+
+## What’s implemented
+
+- PWA from day 1 (manifest + Serwist service worker)
+- Privy login (email/SMS) + embedded wallet
+- USDC balance read on Base
+- Choose a `@username`
+- Send USDC to `@username`
+- Request link: `/s/{code}` and pay flow
+- Basic activity feed (sent transfers + created/received requests)
+
+## Setup
+
+### 1) Install
+
+```bash
+cd crypto-pay
+npm install
+```
+
+### 2) Configure env
+
+Copy `.env.example` → `.env.local` and fill:
+
+- **Client**:
+  - `NEXT_PUBLIC_PRIVY_APP_ID`
+  - `NEXT_PUBLIC_BASE_RPC_URL` (optional; defaults to Base public RPC)
+  - `NEXT_PUBLIC_USDC_ADDRESS` (optional; defaults to Base USDC)
+- **Server**:
+  - `PRIVY_APP_ID`
+  - `PRIVY_APP_SECRET`
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+
+### 3) Create database tables
+
+Run the SQL in:
+
+- `supabase/schema.sql`
+
+in your Supabase SQL editor.
+
+### 4) Run
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Notes (MVP limitations)
+
+- The `/api/sessions/[code]/pay` endpoint **records** the tx hash but does **not** verify on-chain receipt yet.
+- RLS policies are not fully designed; MVP uses server-side Supabase service role for writes/reads.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
