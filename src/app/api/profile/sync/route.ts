@@ -52,7 +52,16 @@ export async function POST(req: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: "db_error", detail: error.message }, { status: 500 });
+    console.error("[profile/sync] db_error:", error);
+    const body: Record<string, string> = {
+      error: "db_error",
+      detail: error.message,
+    };
+    if (error.code === "42501" && process.env.NODE_ENV === "development") {
+      body.hint =
+        "Run supabase/grant-privileges.sql in the Supabase SQL editor (service_role lacks table grants).";
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 
   return NextResponse.json({ profile: data });

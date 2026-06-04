@@ -37,11 +37,10 @@ Copy `.env.example` → `.env.local` and fill:
 
 ### 3) Create database tables
 
-Run the SQL in:
+Run these in the **Supabase SQL editor** (Dashboard → SQL → New query):
 
-- `supabase/schema.sql`
-
-in your Supabase SQL editor.
+1. `supabase/schema.sql` — creates tables, triggers, and grants
+2. If profile sync still returns 500 with `permission denied for table profiles`, run `supabase/grant-privileges.sql` (needed when tables were created before grants were added to the schema)
 
 ### 4) Run
 
