@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { requireFeatureEnabled } from "@/lib/featureFlags";
 
 const schema = z.object({
   username: z
@@ -11,6 +13,12 @@ const schema = z.object({
 });
 
 export async function GET(req: Request) {
+  const limited = await enforceRateLimit(req, "users_resolve");
+  if (limited) return limited;
+
+  const disabled = await requireFeatureEnabled("users_resolve");
+  if (disabled) return disabled;
+
   const url = new URL(req.url);
   const parsed = schema.safeParse({ username: url.searchParams.get("username") });
   if (!parsed.success) {
@@ -41,4 +49,3 @@ export async function GET(req: Request) {
     },
   });
 }
-

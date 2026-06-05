@@ -2,25 +2,30 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { encodeFunctionData, parseUnits } from "viem";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
-import { erc20Abi } from "@/lib/usdc";
+import { ensureBaseChain, simulateUsdcTransfer } from "@/lib/usdcTransferClient";
 
-type Session = {
+type PublicSession = {
+  creator_display_name: string;
+  amount: string;
+  token: string;
+  status: string;
+  expiry: string;
+};
+
+type PreparePayload = {
   short_code: string;
   amount: string;
   token_symbol: string;
   token_address: `0x${string}`;
   token_decimals: number;
   chain_id: number;
-  status: string;
-  expires_at: string;
   receiver_wallet_address: `0x${string}`;
-  payer_tx_hash?: string | null;
+  expires_at: string;
 };
 
 export function PayLinkClient({ code }: { code: string }) {
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
 
@@ -33,7 +38,7 @@ export function PayLinkClient({ code }: { code: string }) {
     async () => {
       const res = await fetch(`/api/sessions/${encodeURIComponent(code)}`);
       if (!res.ok) throw new Error("not_found");
-      const json = (await res.json()) as { session: Session };
+      const json = (await res.json()) as { session: PublicSession };
       return json.session;
     },
     { refreshInterval: 10_000 },
@@ -77,12 +82,13 @@ export function PayLinkClient({ code }: { code: string }) {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Payment request</h1>
 
         <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-          <p className="text-xs text-white/60">Amount</p>
+          <p className="text-xs text-white/60">From</p>
+          <p className="mt-1 text-sm font-medium">{session.creator_display_name}</p>
+
+          <p className="mt-4 text-xs text-white/60">Amount</p>
           <p className="mt-1 text-3xl font-semibold tracking-tight">
             {session.amount}{" "}
-            <span className="text-base font-medium text-white/70">
-              {session.token_symbol}
-            </span>
+            <span className="text-base font-medium text-white/70">{session.token}</span>
           </p>
           <p className="mt-2 text-xs text-white/50">Network: Base</p>
 
@@ -112,18 +118,27 @@ export function PayLinkClient({ code }: { code: string }) {
                 if (!wallet?.address) return;
                 setStatus({ type: "sending" });
                 try {
-                  const amountWei = parseUnits(
-                    session.amount,
-                    session.token_decimals,
+                  const token = await getAccessToken();
+                  const prepareRes = await fetch(
+                    `/api/sessions/${encodeURIComponent(code)}/prepare`,
+                    { headers: { authorization: `Bearer ${token}` } },
                   );
-                  const data = encodeFunctionData({
-                    abi: erc20Abi,
-                    functionName: "transfer",
-                    args: [session.receiver_wallet_address, amountWei],
+                  if (!prepareRes.ok) {
+                    throw new Error("Could not prepare payment.");
+                  }
+                  const { prepare } = (await prepareRes.json()) as { prepare: PreparePayload };
+
+                  await ensureBaseChain(wallet);
+
+                  const tx = await simulateUsdcTransfer({
+                    from: wallet.address as `0x${string}`,
+                    to: prepare.receiver_wallet_address,
+                    amount: prepare.amount,
+                    decimals: prepare.token_decimals,
                   });
 
                   const result = await sendTransaction(
-                    { to: session.token_address, data },
+                    { to: tx.to, data: tx.data },
                     { address: wallet.address },
                   );
 
@@ -135,10 +150,13 @@ export function PayLinkClient({ code }: { code: string }) {
 
                   setStatus({ type: "sent", txHash: result.hash });
                   await mutate();
-                } catch {
+                } catch (err) {
                   setStatus({
                     type: "error",
-                    message: "Transaction failed or was rejected.",
+                    message:
+                      err instanceof Error
+                        ? err.message
+                        : "Transaction failed or was rejected.",
                   });
                 }
               }}
@@ -146,7 +164,7 @@ export function PayLinkClient({ code }: { code: string }) {
             >
               {status.type === "sending"
                 ? "Sending…"
-                : `Pay ${session.amount} ${session.token_symbol}`}
+                : `Pay ${session.amount} ${session.token}`}
             </button>
           )}
 
@@ -162,4 +180,3 @@ export function PayLinkClient({ code }: { code: string }) {
     </main>
   );
 }
-

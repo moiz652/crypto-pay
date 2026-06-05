@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { encodeFunctionData, parseUnits } from "viem";
 import useSWR from "swr";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
-import { USDC, erc20Abi } from "@/lib/usdc";
+import { USDC } from "@/lib/usdc";
+import { ensureBaseChain, simulateUsdcTransfer } from "@/lib/usdcTransferClient";
 
 function normalizeUsername(raw: string) {
   const trimmed = raw.trim().replace(/^@/, "");
@@ -47,20 +47,12 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
   const sameAsSender =
     fromAddress && toAddress && fromAddress.toLowerCase() === toAddress.toLowerCase();
 
-  const amountWei = useMemo(() => {
-    try {
-      if (!amount) return null;
-      if (!/^\d+(\.\d+)?$/.test(amount)) return null;
-      return parseUnits(amount, USDC.decimals);
-    } catch {
-      return null;
-    }
-  }, [amount]);
-
   const canSend =
     Boolean(wallet?.address) &&
     Boolean(toAddress) &&
-    Boolean(amountWei) &&
+    Boolean(amount) &&
+    /^\d+(\.\d+)?$/.test(amount) &&
+    Number(amount) > 0 &&
     !sameAsSender &&
     status.type !== "sending";
 
@@ -93,8 +85,10 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
       <div className="mt-2 text-xs text-white/60">
         {toAddress ? (
           <p>
-            Paying <span className="font-mono">@{resolved?.profile?.username}</span> →{" "}
-            <span className="font-mono">{toAddress}</span>
+            Paying <span className="font-mono">@{resolved?.profile?.username}</span>
+            {resolved?.profile?.display_name ? (
+              <> ({resolved.profile.display_name})</>
+            ) : null}
           </p>
         ) : canLookup ? (
           <p>Looking up recipient…</p>
@@ -108,19 +102,20 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
         type="button"
         disabled={!canSend}
         onClick={async () => {
-          if (!wallet?.address || !toAddress || !amountWei) return;
+          if (!wallet?.address || !toAddress || !amount) return;
           setStatus({ type: "sending" });
           try {
-            const data = encodeFunctionData({
-              abi: erc20Abi,
-              functionName: "transfer",
-              args: [toAddress, amountWei],
+            await ensureBaseChain(wallet);
+
+            const tx = await simulateUsdcTransfer({
+              from: wallet.address as `0x${string}`,
+              to: toAddress,
+              amount,
+              decimals: USDC.decimals,
             });
+
             const result = await sendTransaction(
-              {
-                to: USDC.address,
-                data,
-              },
+              { to: tx.to, data: tx.data },
               { address: wallet.address },
             );
             try {
@@ -142,8 +137,12 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
               // Non-blocking for MVP: chain tx is source of truth.
             }
             setStatus({ type: "sent", txHash: result.hash });
-          } catch {
-            setStatus({ type: "error", message: "Transaction failed or was rejected." });
+          } catch (err) {
+            setStatus({
+              type: "error",
+              message:
+                err instanceof Error ? err.message : "Transaction failed or was rejected.",
+            });
           }
         }}
         className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
@@ -161,4 +160,3 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
     </div>
   );
 }
-

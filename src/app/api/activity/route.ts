@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requirePrivyUserIdFromRequest } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { requireFeatureEnabled } from "@/lib/featureFlags";
 
 export async function GET(req: Request) {
+  const limited = await enforceRateLimit(req, "activity");
+  if (limited) return limited;
+
+  const disabled = await requireFeatureEnabled("activity");
+  if (disabled) return disabled;
+
   let userId: string;
   try {
     userId = await requirePrivyUserIdFromRequest(req);
@@ -71,4 +79,3 @@ export async function GET(req: Request) {
     })),
   });
 }
-

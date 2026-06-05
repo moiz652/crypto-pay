@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { requireFeatureEnabled } from "@/lib/featureFlags";
 
 const paramsSchema = z.object({
   code: z.string().min(6).max(32).regex(/^[A-Z0-9]+$/),
@@ -11,6 +13,12 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
+  const limited = await enforceRateLimit(req, "default");
+  if (limited) return limited;
+
+  const disabled = await requireFeatureEnabled("payment_sessions");
+  if (disabled) return disabled;
+
   const params = await ctx.params;
   const paramsParsed = paramsSchema.safeParse({ code: params.code });
   if (!paramsParsed.success) {
@@ -57,4 +65,3 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
 
   return NextResponse.json({ ok: true });
 }
-

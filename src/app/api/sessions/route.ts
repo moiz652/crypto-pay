@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requirePrivyUserIdFromRequest } from "@/lib/auth";
 import { generateShortCode } from "@/lib/shortCode";
 import { USDC } from "@/lib/usdc";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { requireFeatureEnabled } from "@/lib/featureFlags";
 
 const createSchema = z.object({
   amount: z
@@ -13,6 +15,12 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const limited = await enforceRateLimit(req, "sessions_create");
+  if (limited) return limited;
+
+  const disabled = await requireFeatureEnabled("payment_sessions");
+  if (disabled) return disabled;
+
   let userId: string;
   try {
     userId = await requirePrivyUserIdFromRequest(req);
@@ -57,9 +65,7 @@ export async function POST(req: Request) {
       expires_at,
       status: "pending",
     })
-    .select(
-      "short_code,amount,token_symbol,chain_id,expires_at,status,receiver_wallet_address",
-    )
+    .select("short_code,amount,token_symbol,chain_id,expires_at,status")
     .single();
 
   if (error) {
@@ -70,4 +76,3 @@ export async function POST(req: Request) {
     session: data,
   });
 }
-

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrivyClient } from "@/lib/privyServer";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { requireFeatureEnabled } from "@/lib/featureFlags";
+import { validateWalletAddress } from "@/lib/walletValidation";
 
 const bodySchema = z.object({
   wallet_address: z.string().optional(),
@@ -15,6 +18,12 @@ function getBearerToken(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const limited = await enforceRateLimit(req, "profile_sync");
+  if (limited) return limited;
+
+  const disabled = await requireFeatureEnabled("profile_sync");
+  if (disabled) return disabled;
+
   const privy = getPrivyClient();
   const supabaseAdmin = getSupabaseAdmin();
 
@@ -38,17 +47,34 @@ export async function POST(req: Request) {
 
   const { wallet_address, display_name } = parsed.data;
 
+  const upsertPayload: {
+    privy_user_id: string;
+    wallet_address?: string | null;
+    display_name?: string | null;
+  } = {
+    privy_user_id: claims.userId,
+  };
+
+  if (wallet_address !== undefined) {
+    if (wallet_address === "") {
+      upsertPayload.wallet_address = null;
+    } else {
+      const validated = validateWalletAddress(wallet_address);
+      if (!validated) {
+        return NextResponse.json({ error: "invalid_wallet_address" }, { status: 400 });
+      }
+      upsertPayload.wallet_address = validated;
+    }
+  }
+
+  if (display_name !== undefined) {
+    upsertPayload.display_name = display_name ?? null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .upsert(
-      {
-        privy_user_id: claims.userId,
-        wallet_address: wallet_address ?? null,
-        display_name: display_name ?? null,
-      },
-      { onConflict: "privy_user_id" },
-    )
-    .select("id, privy_user_id, username, wallet_address, display_name")
+    .upsert(upsertPayload, { onConflict: "privy_user_id" })
+    .select("id, username, wallet_address, display_name")
     .single();
 
   if (error) {
@@ -66,4 +92,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ profile: data });
 }
-

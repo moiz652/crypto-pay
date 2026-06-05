@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrivyClient } from "@/lib/privyServer";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { requireFeatureEnabled } from "@/lib/featureFlags";
 
 const bodySchema = z.object({
   username: z
@@ -18,6 +20,12 @@ function getBearerToken(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const limited = await enforceRateLimit(req, "default");
+  if (limited) return limited;
+
+  const disabled = await requireFeatureEnabled("profile_sync");
+  if (disabled) return disabled;
+
   const token = getBearerToken(req);
   if (!token) return NextResponse.json({ error: "missing_auth" }, { status: 401 });
 
@@ -47,7 +55,6 @@ export async function POST(req: Request) {
     .single();
 
   if (error) {
-    // Supabase unique violation
     if (error.code === "23505") {
       return NextResponse.json({ error: "username_taken" }, { status: 409 });
     }
@@ -56,4 +63,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ profile: data });
 }
-

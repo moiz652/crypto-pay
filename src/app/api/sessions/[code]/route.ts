@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 const paramsSchema = z.object({
   code: z.string().min(6).max(32).regex(/^[A-Z0-9]+$/),
 });
 
 export async function GET(_req: Request, ctx: { params: Promise<{ code: string }> }) {
+  const limited = await enforceRateLimit(_req, "sessions_get");
+  if (limited) return limited;
+
   const params = await ctx.params;
   const parsed = paramsSchema.safeParse({ code: params.code });
   if (!parsed.success) {
@@ -19,7 +23,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
   const { data, error } = await supabase
     .from("payment_sessions")
     .select(
-      "short_code,amount,token_symbol,token_address,token_decimals,chain_id,status,expires_at,receiver_wallet_address,payer_tx_hash",
+      "amount,token_symbol,status,expires_at,creator_privy_user_id",
     )
     .eq("short_code", code)
     .maybeSingle();
@@ -31,14 +35,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const { data: creator } = await supabase
+    .from("profiles")
+    .select("display_name,username")
+    .eq("privy_user_id", data.creator_privy_user_id)
+    .maybeSingle();
+
   const expired = new Date(data.expires_at).getTime() < Date.now();
   const status = expired && data.status === "pending" ? "expired" : data.status;
 
   return NextResponse.json({
     session: {
-      ...data,
+      creator_display_name: creator?.display_name ?? creator?.username ?? "Someone",
+      amount: data.amount,
+      token: data.token_symbol,
       status,
+      expiry: data.expires_at,
     },
   });
 }
-
