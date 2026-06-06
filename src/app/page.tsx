@@ -223,12 +223,9 @@ function AuthedHome() {
                 <div>
                   <p className="text-xs text-white/60">Balance</p>
                   <p className="text-3xl font-semibold tracking-tight">
-                    {usdcBalance != null
-                      ? Number(formatUnits(usdcBalance, USDC.decimals)).toLocaleString(
-                          undefined,
-                          { maximumFractionDigits: 2 },
-                        )
-                      : "—"}{" "}
+                    {Number(
+                      formatUnits(usdcBalance ?? BigInt(0), USDC.decimals),
+                    ).toLocaleString(undefined, { maximumFractionDigits: 2 })}{" "}
                     <span className="text-base font-medium text-white/70">USDC</span>
                   </p>
                 </div>

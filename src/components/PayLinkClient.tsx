@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
-import { ensureBaseChain, simulateUsdcTransfer } from "@/lib/usdcTransferClient";
+import {
+  ensureBaseChain,
+  sanitizeTransactionError,
+  simulateUsdcTransfer,
+} from "@/lib/usdcTransferClient";
 
 type PublicSession = {
   creator_display_name: string;
@@ -163,10 +167,7 @@ export function PayLinkClient({ code }: { code: string }) {
                 } catch (err) {
                   setStatus({
                     type: "error",
-                    message:
-                      err instanceof Error
-                        ? err.message
-                        : "Transaction failed or was rejected.",
+                    message: sanitizeTransactionError(err),
                   });
                 }
               }}

@@ -1,15 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import useSWR from "swr";
+import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { USDC } from "@/lib/usdc";
-import { ensureBaseChain, simulateUsdcTransfer } from "@/lib/usdcTransferClient";
+import {
+  ensureBaseChain,
+  sanitizeTransactionError,
+  simulateUsdcTransfer,
+} from "@/lib/usdcTransferClient";
 
 function normalizeUsername(raw: string) {
   const trimmed = raw.trim().replace(/^@/, "");
   return trimmed.toLowerCase();
 }
+
+const LOOKUP_TIMEOUT_MS = 3000;
+
+type ResolvedProfile = {
+  wallet_address: `0x${string}`;
+  username: string;
+  display_name?: string | null;
+};
+
+type ResolveState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "found"; profile: ResolvedProfile }
+  | { status: "not_found" };
 
 export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
   const { authenticated, getAccessToken } = usePrivy();
@@ -32,18 +49,55 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
   const username = useMemo(() => normalizeUsername(toUsername), [toUsername]);
   const canLookup = username.length >= 2;
 
-  const { data: resolved } = useSWR(
-    authenticated && canLookup ? ["resolve", username] : null,
-    async () => {
-      const res = await fetch(`/api/users/resolve?username=${encodeURIComponent(username)}`);
-      if (!res.ok) return null;
-      return res.json() as Promise<{
-        profile: { wallet_address: `0x${string}`; username: string; display_name?: string | null };
-      }>;
-    },
-  );
+  const [resolveState, setResolveState] = useState<ResolveState>({ status: "idle" });
 
-  const toAddress = resolved?.profile?.wallet_address;
+  useEffect(() => {
+    if (!authenticated || !canLookup) {
+      setResolveState({ status: "idle" });
+      return;
+    }
+
+    setResolveState({ status: "loading" });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+    let cancelled = false;
+
+    fetch(`/api/users/resolve?username=${encodeURIComponent(username)}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          setResolveState({ status: "not_found" });
+          return;
+        }
+        const json = (await res.json()) as { profile?: ResolvedProfile };
+        if (!json.profile?.wallet_address) {
+          setResolveState({ status: "not_found" });
+          return;
+        }
+        setResolveState({ status: "found", profile: json.profile });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResolveState({ status: "not_found" });
+        }
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [authenticated, canLookup, username]);
+
+  const toAddress =
+    resolveState.status === "found" ? resolveState.profile.wallet_address : undefined;
+  const userNotFound = resolveState.status === "not_found";
+  const isLookingUp = resolveState.status === "loading";
   const sameAsSender =
     fromAddress && toAddress && fromAddress.toLowerCase() === toAddress.toLowerCase();
 
@@ -54,6 +108,8 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
     /^\d+(\.\d+)?$/.test(amount) &&
     Number(amount) > 0 &&
     !sameAsSender &&
+    !userNotFound &&
+    !isLookingUp &&
     status.type !== "sending";
 
   return (
@@ -83,15 +139,17 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
       </div>
 
       <div className="mt-2 text-xs text-white/60">
-        {toAddress ? (
+        {resolveState.status === "found" ? (
           <p>
-            Paying <span className="font-mono">@{resolved?.profile?.username}</span>
-            {resolved?.profile?.display_name ? (
-              <> ({resolved.profile.display_name})</>
+            Paying <span className="font-mono">@{resolveState.profile.username}</span>
+            {resolveState.profile.display_name ? (
+              <> ({resolveState.profile.display_name})</>
             ) : null}
           </p>
-        ) : canLookup ? (
+        ) : isLookingUp ? (
           <p>Looking up recipient…</p>
+        ) : userNotFound ? (
+          <p className="text-red-300/90">User not found</p>
         ) : null}
         {sameAsSender ? (
           <p className="text-red-300/90">Recipient can’t be your own wallet.</p>
@@ -127,7 +185,9 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
                   authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                  to_username: resolved?.profile?.username,
+                  to_username:
+                    resolveState.status === "found" ? resolveState.profile.username : undefined,
+
                   to_wallet_address: toAddress,
                   amount,
                   tx_hash: result.hash,
@@ -140,8 +200,7 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
           } catch (err) {
             setStatus({
               type: "error",
-              message:
-                err instanceof Error ? err.message : "Transaction failed or was rejected.",
+              message: sanitizeTransactionError(err),
             });
           }
         }}
