@@ -3,13 +3,9 @@
 import { useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 
-export function UsernameForm({
-  currentUsername,
-}: {
-  currentUsername?: string | null;
-}) {
+export function UsernameForm({ onSaved }: { onSaved?: () => void }) {
   const { getAccessToken } = usePrivy();
-  const [value, setValue] = useState(currentUsername ?? "");
+  const [value, setValue] = useState("");
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "saving" }
@@ -65,6 +61,7 @@ export function UsernameForm({
                 return;
               }
               setStatus({ type: "saved" });
+              onSaved?.();
             } catch {
               setStatus({ type: "error", message: "Network error." });
             }

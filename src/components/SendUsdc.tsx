@@ -8,6 +8,7 @@ import {
   sanitizeTransactionError,
   simulateUsdcTransfer,
 } from "@/lib/usdcTransferClient";
+import { TransactionConfirmModal } from "@/components/TransactionConfirmModal";
 
 function normalizeUsername(raw: string) {
   const trimmed = raw.trim().replace(/^@/, "");
@@ -39,6 +40,7 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
 
   const [toUsername, setToUsername] = useState("");
   const [amount, setAmount] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "sending" }
@@ -110,7 +112,62 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
     !sameAsSender &&
     !userNotFound &&
     !isLookingUp &&
-    status.type !== "sending";
+    status.type !== "sending" &&
+    !confirmOpen;
+
+  async function handleConfirmSend() {
+    if (!wallet?.address || !toAddress || !amount) return;
+    setStatus({ type: "sending" });
+    try {
+      await ensureBaseChain(wallet);
+
+      const tx = await simulateUsdcTransfer({
+        from: wallet.address as `0x${string}`,
+        to: toAddress,
+        amount,
+        decimals: USDC.decimals,
+      });
+
+      const result = await sendTransaction(
+        { to: tx.to, data: tx.data },
+        { address: wallet.address },
+      );
+      try {
+        const token = await getAccessToken();
+        await fetch("/api/transfers", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            to_username:
+              resolveState.status === "found" ? resolveState.profile.username : undefined,
+            to_wallet_address: toAddress,
+            amount,
+            tx_hash: result.hash,
+          }),
+        });
+      } catch {
+        // Non-blocking for MVP: chain tx is source of truth.
+      }
+      setConfirmOpen(false);
+      setStatus({ type: "sent", txHash: result.hash });
+    } catch (err) {
+      setConfirmOpen(false);
+      setStatus({
+        type: "error",
+        message: sanitizeTransactionError(err),
+      });
+    }
+  }
+
+  const recipientLabel =
+    resolveState.status === "found"
+      ? `@${resolveState.profile.username}${
+          resolveState.profile.display_name ? ` (${resolveState.profile.display_name})` : ""
+        }`
+      : "";
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -159,55 +216,23 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
       <button
         type="button"
         disabled={!canSend}
-        onClick={async () => {
-          if (!wallet?.address || !toAddress || !amount) return;
-          setStatus({ type: "sending" });
-          try {
-            await ensureBaseChain(wallet);
-
-            const tx = await simulateUsdcTransfer({
-              from: wallet.address as `0x${string}`,
-              to: toAddress,
-              amount,
-              decimals: USDC.decimals,
-            });
-
-            const result = await sendTransaction(
-              { to: tx.to, data: tx.data },
-              { address: wallet.address },
-            );
-            try {
-              const token = await getAccessToken();
-              await fetch("/api/transfers", {
-                method: "POST",
-                headers: {
-                  "content-type": "application/json",
-                  authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  to_username:
-                    resolveState.status === "found" ? resolveState.profile.username : undefined,
-
-                  to_wallet_address: toAddress,
-                  amount,
-                  tx_hash: result.hash,
-                }),
-              });
-            } catch {
-              // Non-blocking for MVP: chain tx is source of truth.
-            }
-            setStatus({ type: "sent", txHash: result.hash });
-          } catch (err) {
-            setStatus({
-              type: "error",
-              message: sanitizeTransactionError(err),
-            });
-          }
-        }}
+        onClick={() => setConfirmOpen(true)}
         className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
       >
-        {status.type === "sending" ? "Sending…" : "Send"}
+        Send
       </button>
+
+      <TransactionConfirmModal
+        open={confirmOpen}
+        title="Confirm send"
+        recipient={recipientLabel}
+        amount={amount}
+        token="USDC"
+        network="Base"
+        confirming={status.type === "sending"}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void handleConfirmSend()}
+      />
 
       {status.type === "sent" ? (
         <p className="mt-2 break-all text-xs text-emerald-300/90">

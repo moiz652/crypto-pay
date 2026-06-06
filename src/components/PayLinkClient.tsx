@@ -8,6 +8,7 @@ import {
   sanitizeTransactionError,
   simulateUsdcTransfer,
 } from "@/lib/usdcTransferClient";
+import { TransactionConfirmModal } from "@/components/TransactionConfirmModal";
 
 type PublicSession = {
   creator_display_name: string;
@@ -50,12 +51,66 @@ export function PayLinkClient({ code }: { code: string }) {
 
   const session = data;
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "sending" }
     | { type: "sent"; txHash: string }
     | { type: "error"; message: string }
   >({ type: "idle" });
+
+  async function handleConfirmPay() {
+    if (!wallet?.address) return;
+    setStatus({ type: "sending" });
+    try {
+      const token = await getAccessToken();
+      const prepareRes = await fetch(`/api/sessions/${encodeURIComponent(code)}/prepare`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const prepareBody = (await prepareRes.json().catch(() => null)) as
+        | { prepare?: PreparePayload; error?: string; message?: string }
+        | null;
+      if (!prepareRes.ok) {
+        throw new Error(
+          prepareBody?.message ?? prepareBody?.error ?? "Could not prepare payment.",
+        );
+      }
+      const prepare = prepareBody?.prepare;
+      if (!prepare) {
+        throw new Error("Could not prepare payment.");
+      }
+
+      await ensureBaseChain(wallet);
+
+      const tx = await simulateUsdcTransfer({
+        from: wallet.address as `0x${string}`,
+        to: prepare.receiver_wallet_address,
+        amount: prepare.amount,
+        decimals: prepare.token_decimals,
+      });
+
+      const result = await sendTransaction(
+        { to: tx.to, data: tx.data },
+        { address: wallet.address },
+      );
+
+      await fetch(`/api/sessions/${encodeURIComponent(code)}/pay`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tx_hash: result.hash }),
+      });
+
+      setConfirmOpen(false);
+      setStatus({ type: "sent", txHash: result.hash });
+      await mutate();
+    } catch (err) {
+      setConfirmOpen(false);
+      setStatus({
+        type: "error",
+        message: sanitizeTransactionError(err),
+      });
+    }
+  }
 
   if (error) {
     return (
@@ -117,67 +172,25 @@ export function PayLinkClient({ code }: { code: string }) {
           ) : (
             <button
               type="button"
-              disabled={!wallet?.address || status.type === "sending"}
-              onClick={async () => {
-                if (!wallet?.address) return;
-                setStatus({ type: "sending" });
-                try {
-                  await ensureBaseChain(wallet);
-
-                  const token = await getAccessToken();
-                  const prepareRes = await fetch(
-                    `/api/sessions/${encodeURIComponent(code)}/prepare`,
-                    { headers: { authorization: `Bearer ${token}` } },
-                  );
-                  const prepareBody = (await prepareRes.json().catch(() => null)) as
-                    | { prepare?: PreparePayload; error?: string; message?: string }
-                    | null;
-                  if (!prepareRes.ok) {
-                    throw new Error(
-                      prepareBody?.message ??
-                        prepareBody?.error ??
-                        "Could not prepare payment.",
-                    );
-                  }
-                  const prepare = prepareBody?.prepare;
-                  if (!prepare) {
-                    throw new Error("Could not prepare payment.");
-                  }
-
-                  const tx = await simulateUsdcTransfer({
-                    from: wallet.address as `0x${string}`,
-                    to: prepare.receiver_wallet_address,
-                    amount: prepare.amount,
-                    decimals: prepare.token_decimals,
-                  });
-
-                  const result = await sendTransaction(
-                    { to: tx.to, data: tx.data },
-                    { address: wallet.address },
-                  );
-
-                  await fetch(`/api/sessions/${encodeURIComponent(code)}/pay`, {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ tx_hash: result.hash }),
-                  });
-
-                  setStatus({ type: "sent", txHash: result.hash });
-                  await mutate();
-                } catch (err) {
-                  setStatus({
-                    type: "error",
-                    message: sanitizeTransactionError(err),
-                  });
-                }
-              }}
+              disabled={!wallet?.address || status.type === "sending" || confirmOpen}
+              onClick={() => setConfirmOpen(true)}
               className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
             >
-              {status.type === "sending"
-                ? "Sending…"
-                : `Pay ${session.amount} ${session.token}`}
+              {`Pay ${session.amount} ${session.token}`}
             </button>
           )}
+
+          <TransactionConfirmModal
+            open={confirmOpen}
+            title="Confirm payment"
+            recipient={session.creator_display_name}
+            amount={session.amount}
+            token={session.token}
+            network="Base"
+            confirming={status.type === "sending"}
+            onCancel={() => setConfirmOpen(false)}
+            onConfirm={() => void handleConfirmPay()}
+          />
 
           {status.type === "sent" ? (
             <p className="mt-3 break-all text-xs text-emerald-300/90">

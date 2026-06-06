@@ -44,7 +44,11 @@ function AuthedHome() {
 
   const address = embeddedWallet?.address as `0x${string}` | undefined;
 
-  const { data: profileSync } = useSWR(
+  const {
+    data: profileSync,
+    mutate: mutateProfile,
+    isLoading: profileLoading,
+  } = useSWR(
     ready && authenticated
       ? ["profileSync", address ?? "", user?.id ?? ""]
       : null,
@@ -61,10 +65,14 @@ function AuthedHome() {
         }),
       });
       if (!res.ok) throw new Error("profile_sync_failed");
-      return res.json();
+      return res.json() as Promise<{
+        profile: { id: string; username: string | null; wallet_address: string | null };
+      }>;
     },
     { revalidateOnFocus: false },
   );
+
+  const username = profileSync?.profile?.username?.trim() || null;
 
   const { data: usdcBalance } = useSWR(
     address ? ["usdcBalance", address] : null,
@@ -158,16 +166,17 @@ function AuthedHome() {
               <div>
                 <p className="text-xs text-white/60">Signed in as</p>
                 <p className="text-sm font-medium">
-                  {user?.email?.address ?? user?.phone?.number ?? user?.id}
+                  {username ? (
+                    <span className="font-mono">@{username}</span>
+                  ) : (
+                    (user?.email?.address ?? user?.phone?.number ?? user?.id)
+                  )}
                 </p>
               </div>
-              {profileSync?.profile?.id ? (
-                <p className="text-xs text-white/40">
-                  Profile synced
-                </p>
-              ) : null}
 
-              <UsernameForm currentUsername={profileSync?.profile?.username} />
+              {!profileLoading && !username ? (
+                <UsernameForm onSaved={() => void mutateProfile()} />
+              ) : null}
               <SendUsdc fromAddress={address} />
               <RequestLink />
 
