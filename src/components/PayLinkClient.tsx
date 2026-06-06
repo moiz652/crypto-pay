@@ -8,7 +8,6 @@ import {
   sanitizeTransactionError,
   simulateUsdcTransfer,
 } from "@/lib/usdcTransferClient";
-import { TransactionConfirmModal } from "@/components/TransactionConfirmModal";
 
 type PublicSession = {
   creator_display_name: string;
@@ -51,7 +50,6 @@ export function PayLinkClient({ code }: { code: string }) {
 
   const session = data;
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "sending" }
@@ -59,7 +57,7 @@ export function PayLinkClient({ code }: { code: string }) {
     | { type: "error"; message: string }
   >({ type: "idle" });
 
-  async function handleConfirmPay() {
+  async function handlePay() {
     if (!wallet?.address) return;
     setStatus({ type: "sending" });
     try {
@@ -89,6 +87,7 @@ export function PayLinkClient({ code }: { code: string }) {
         decimals: prepare.token_decimals,
       });
 
+      // Privy handles the native confirmation UI, gas estimation, and receipt
       const result = await sendTransaction(
         { to: tx.to, data: tx.data },
         { address: wallet.address },
@@ -100,11 +99,9 @@ export function PayLinkClient({ code }: { code: string }) {
         body: JSON.stringify({ tx_hash: result.hash }),
       });
 
-      setConfirmOpen(false);
       setStatus({ type: "sent", txHash: result.hash });
       await mutate();
     } catch (err) {
-      setConfirmOpen(false);
       setStatus({
         type: "error",
         message: sanitizeTransactionError(err),
@@ -172,25 +169,15 @@ export function PayLinkClient({ code }: { code: string }) {
           ) : (
             <button
               type="button"
-              disabled={!wallet?.address || status.type === "sending" || confirmOpen}
-              onClick={() => setConfirmOpen(true)}
+              disabled={!wallet?.address || status.type === "sending"}
+              onClick={() => void handlePay()}
               className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
             >
-              {`Pay ${session.amount} ${session.token}`}
+              {status.type === "sending"
+                ? "Processing…"
+                : `Pay ${session.amount} ${session.token}`}
             </button>
           )}
-
-          <TransactionConfirmModal
-            open={confirmOpen}
-            title="Confirm payment"
-            recipient={session.creator_display_name}
-            amount={session.amount}
-            token={session.token}
-            network="Base"
-            confirming={status.type === "sending"}
-            onCancel={() => setConfirmOpen(false)}
-            onConfirm={() => void handleConfirmPay()}
-          />
 
           {status.type === "sent" ? (
             <p className="mt-3 break-all text-xs text-emerald-300/90">

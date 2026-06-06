@@ -8,7 +8,6 @@ import {
   sanitizeTransactionError,
   simulateUsdcTransfer,
 } from "@/lib/usdcTransferClient";
-import { TransactionConfirmModal } from "@/components/TransactionConfirmModal";
 
 function normalizeUsername(raw: string) {
   const trimmed = raw.trim().replace(/^@/, "");
@@ -40,7 +39,6 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
 
   const [toUsername, setToUsername] = useState("");
   const [amount, setAmount] = useState("");
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "sending" }
@@ -112,10 +110,9 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
     !sameAsSender &&
     !userNotFound &&
     !isLookingUp &&
-    status.type !== "sending" &&
-    !confirmOpen;
+    status.type !== "sending";
 
-  async function handleConfirmSend() {
+  async function handleSend() {
     if (!wallet?.address || !toAddress || !amount) return;
     setStatus({ type: "sending" });
     try {
@@ -128,10 +125,12 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
         decimals: USDC.decimals,
       });
 
+      // Privy handles the native confirmation UI, gas estimation, and receipt
       const result = await sendTransaction(
         { to: tx.to, data: tx.data },
         { address: wallet.address },
       );
+
       try {
         const token = await getAccessToken();
         await fetch("/api/transfers", {
@@ -151,23 +150,14 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
       } catch {
         // Non-blocking for MVP: chain tx is source of truth.
       }
-      setConfirmOpen(false);
       setStatus({ type: "sent", txHash: result.hash });
     } catch (err) {
-      setConfirmOpen(false);
       setStatus({
         type: "error",
         message: sanitizeTransactionError(err),
       });
     }
   }
-
-  const recipientLabel =
-    resolveState.status === "found"
-      ? `@${resolveState.profile.username}${
-          resolveState.profile.display_name ? ` (${resolveState.profile.display_name})` : ""
-        }`
-      : "";
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -209,30 +199,18 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
           <p className="text-red-300/90">User not found</p>
         ) : null}
         {sameAsSender ? (
-          <p className="text-red-300/90">Recipient can’t be your own wallet.</p>
+          <p className="text-red-300/90">Recipient can&apos;t be your own wallet.</p>
         ) : null}
       </div>
 
       <button
         type="button"
         disabled={!canSend}
-        onClick={() => setConfirmOpen(true)}
+        onClick={() => void handleSend()}
         className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
       >
-        Send
+        {status.type === "sending" ? "Sending…" : "Send"}
       </button>
-
-      <TransactionConfirmModal
-        open={confirmOpen}
-        title="Confirm send"
-        recipient={recipientLabel}
-        amount={amount}
-        token="USDC"
-        network="Base"
-        confirming={status.type === "sending"}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => void handleConfirmSend()}
-      />
 
       {status.type === "sent" ? (
         <p className="mt-2 break-all text-xs text-emerald-300/90">
