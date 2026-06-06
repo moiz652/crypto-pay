@@ -7,7 +7,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://auth.privy.io https://*.supabase.co wss://*.supabase.co https://mainnet.base.org https://*.base.org https://*.upstash.io",
+  "connect-src 'self' https://auth.privy.io https://*.supabase.co wss://*.supabase.co https://mainnet.base.org https://*.base.org https://*.upstash.io https://*.walletconnect.com wss://*.walletconnect.com",
   "frame-src 'self' https://auth.privy.io https://challenges.cloudflare.com",
   "object-src 'none'",
   "base-uri 'self'",

@@ -9,6 +9,16 @@ const paramsSchema = z.object({
   code: z.string().min(6).max(32).regex(/^[A-Z0-9]+$/),
 });
 
+function prepareError(
+  status: number,
+  error: string,
+  message: string,
+  context?: Record<string, unknown>,
+) {
+  console.error("[sessions/prepare]", { error, message, ...context });
+  return NextResponse.json({ error, message }, { status });
+}
+
 export async function GET(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const limited = await enforceRateLimit(req, "sessions_get");
   if (limited) return limited;
@@ -19,17 +29,35 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
   let userId: string;
   try {
     userId = await requirePrivyUserIdFromRequest(req);
-  } catch {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "unknown";
+    return prepareError(
+      401,
+      "unauthorized",
+      detail === "missing_auth"
+        ? "Missing authentication token."
+        : "Invalid or expired authentication token.",
+      { authError: detail },
+    );
   }
 
   const params = await ctx.params;
   const parsed = paramsSchema.safeParse({ code: params.code });
   if (!parsed.success) {
-    return NextResponse.json({ error: "invalid_code" }, { status: 400 });
+    return prepareError(400, "invalid_code", "Invalid payment link code format.", {
+      code: params.code,
+      issues: parsed.error.issues,
+    });
   }
 
-  const supabase = getSupabaseAdmin();
+  let supabase;
+  try {
+    supabase = getSupabaseAdmin();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "unknown";
+    return prepareError(500, "config_error", `Server configuration error: ${detail}`);
+  }
+
   const code = parsed.data.code;
 
   const { data, error } = await supabase
@@ -41,20 +69,37 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "db_error", detail: error.message }, { status: 500 });
+    return prepareError(500, "db_error", `Database lookup failed: ${error.message}`, {
+      code,
+      dbCode: error.code,
+    });
   }
   if (!data) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
+    return prepareError(404, "not_found", "Payment session not found.", { code });
   }
 
   const expired = new Date(data.expires_at).getTime() < Date.now();
   const status = expired && data.status === "pending" ? "expired" : data.status;
   if (status !== "pending") {
-    return NextResponse.json({ error: "not_payable", status }, { status: 409 });
+    return prepareError(
+      409,
+      "not_payable",
+      status === "paid"
+        ? "This payment link has already been paid."
+        : status === "expired"
+          ? "This payment link has expired."
+          : "This payment link is not payable.",
+      { code, status },
+    );
   }
 
   if (data.creator_privy_user_id === userId) {
-    return NextResponse.json({ error: "cannot_pay_own_request" }, { status: 400 });
+    return prepareError(
+      400,
+      "cannot_pay_own_request",
+      "You cannot pay your own payment request.",
+      { code, userId },
+    );
   }
 
   return NextResponse.json({

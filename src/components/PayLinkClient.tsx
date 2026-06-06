@@ -118,17 +118,27 @@ export function PayLinkClient({ code }: { code: string }) {
                 if (!wallet?.address) return;
                 setStatus({ type: "sending" });
                 try {
+                  await ensureBaseChain(wallet);
+
                   const token = await getAccessToken();
                   const prepareRes = await fetch(
                     `/api/sessions/${encodeURIComponent(code)}/prepare`,
                     { headers: { authorization: `Bearer ${token}` } },
                   );
+                  const prepareBody = (await prepareRes.json().catch(() => null)) as
+                    | { prepare?: PreparePayload; error?: string; message?: string }
+                    | null;
                   if (!prepareRes.ok) {
+                    throw new Error(
+                      prepareBody?.message ??
+                        prepareBody?.error ??
+                        "Could not prepare payment.",
+                    );
+                  }
+                  const prepare = prepareBody?.prepare;
+                  if (!prepare) {
                     throw new Error("Could not prepare payment.");
                   }
-                  const { prepare } = (await prepareRes.json()) as { prepare: PreparePayload };
-
-                  await ensureBaseChain(wallet);
 
                   const tx = await simulateUsdcTransfer({
                     from: wallet.address as `0x${string}`,

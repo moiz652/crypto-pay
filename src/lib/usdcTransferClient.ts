@@ -9,21 +9,55 @@ type WalletWithChain = {
   address: string;
   chainId?: string;
   switchChain: (targetChainId: number) => Promise<void>;
+  getEthereumProvider?: () => Promise<{
+    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  }>;
 };
+
+async function addBaseChain(wallet: WalletWithChain): Promise<void> {
+  if (!wallet.getEthereumProvider) return;
+
+  const provider = await wallet.getEthereumProvider();
+  await provider.request({
+    method: "wallet_addEthereumChain",
+    params: [
+      {
+        chainId: `0x${BASE_CHAIN_ID.toString(16)}`,
+        chainName: base.name,
+        nativeCurrency: base.nativeCurrency,
+        rpcUrls: [...base.rpcUrls.default.http],
+        blockExplorerUrls: ["https://basescan.org"],
+      },
+    ],
+  });
+}
 
 export async function ensureBaseChain(wallet: WalletWithChain): Promise<void> {
   const current = wallet.chainId ? Number(wallet.chainId) : undefined;
   if (current === BASE_CHAIN_ID) return;
 
-  try {
+  const switchToBase = async () => {
     await wallet.switchChain(BASE_CHAIN_ID);
+  };
+
+  try {
+    await switchToBase();
   } catch {
-    throw new Error("Please switch your wallet to Base network to continue.");
+    try {
+      await addBaseChain(wallet);
+      await switchToBase();
+    } catch {
+      throw new Error("Please switch your wallet to Base network to continue.");
+    }
   }
 
   const after = wallet.chainId ? Number(wallet.chainId) : undefined;
   if (after !== undefined && after !== BASE_CHAIN_ID) {
-    throw new Error("Please switch your wallet to Base network to continue.");
+    try {
+      await switchToBase();
+    } catch {
+      throw new Error("Please switch your wallet to Base network to continue.");
+    }
   }
 }
 
