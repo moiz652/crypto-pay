@@ -4,12 +4,12 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Crypto Pay",
     short_name: "CryptoPay",
-    description: "Send and request USDC with no addresses or networks.",
+    description: "Send and request USDC with usernames.",
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#0b1220",
-    theme_color: "#0b1220",
+    background_color: "#ffffff",
+    theme_color: "#ffffff",
     icons: [
       {
         src: "/icons/icon.svg",

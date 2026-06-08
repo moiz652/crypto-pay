@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 const csp = [
   "default-src 'self'",
@@ -25,7 +24,7 @@ const csp = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-export function middleware(_request: NextRequest) {
+export function middleware() {
   const response = NextResponse.next();
 
   response.headers.set("Content-Security-Policy", csp);

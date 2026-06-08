@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
+import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
+import { Check, Loader2, ShieldCheck } from "lucide-react";
+import { Avatar } from "@/components/AppUI";
 import {
   ensureBaseChain,
   sanitizeTransactionError,
@@ -48,8 +50,6 @@ export function PayLinkClient({ code }: { code: string }) {
     { refreshInterval: 10_000 },
   );
 
-  const session = data;
-
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "sending" }
@@ -87,7 +87,6 @@ export function PayLinkClient({ code }: { code: string }) {
         decimals: prepare.token_decimals,
       });
 
-      // Privy handles the native confirmation UI, gas estimation, and receipt
       const result = await sendTransaction(
         { to: tx.to, data: tx.data },
         { address: wallet.address },
@@ -111,82 +110,99 @@ export function PayLinkClient({ code }: { code: string }) {
 
   if (error) {
     return (
-      <main className="min-h-dvh bg-[#070b14] text-white">
-        <div className="mx-auto max-w-md px-6 py-10">
-          <p className="text-sm font-semibold">Link not found</p>
+      <main className="screen">
+        <div className="mobile-shell flex min-h-dvh items-center justify-center px-6 text-center">
+          <section>
+            <h1 className="text-[28px] font-bold text-text-primary">Link not found</h1>
+            <p className="mt-2 text-base text-text-secondary">
+              This payment link may have expired or been removed.
+            </p>
+          </section>
         </div>
       </main>
     );
   }
 
-  if (!session) {
+  if (!data) {
     return (
-      <main className="min-h-dvh bg-[#070b14] text-white">
-        <div className="mx-auto max-w-md px-6 py-10">
-          <p className="text-sm text-white/70">Loading…</p>
+      <main className="screen">
+        <div className="mobile-shell flex min-h-dvh items-center justify-center px-6">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading" />
         </div>
       </main>
     );
   }
 
-  const payable = session.status === "pending";
+  const payable = data.status === "pending";
+  const paid = data.status === "paid" || status.type === "sent";
 
   return (
-    <main className="min-h-dvh bg-[#070b14] text-white">
-      <div className="mx-auto max-w-md px-6 py-10">
-        <p className="text-xs text-white/60">Crypto Pay</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Payment request</h1>
-
-        <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-          <p className="text-xs text-white/60">From</p>
-          <p className="mt-1 text-sm font-medium">{session.creator_display_name}</p>
-
-          <p className="mt-4 text-xs text-white/60">Amount</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight">
-            {session.amount}{" "}
-            <span className="text-base font-medium text-white/70">{session.token}</span>
-          </p>
-          <p className="mt-2 text-xs text-white/50">Network: Base</p>
-
-          {!payable ? (
-            <p className="mt-4 text-sm text-white/70">
-              {session.status === "paid"
-                ? "Already paid."
-                : session.status === "expired"
-                  ? "This link has expired."
-                  : "This link is not payable."}
+    <main className="screen">
+      <div className="mobile-shell safe-bottom flex min-h-dvh flex-col justify-center px-6 py-10">
+        <section className="text-center">
+          <p className="text-xl font-semibold text-text-secondary">Payment request</p>
+          <div className="cp-card mt-6 p-5">
+            <div className="flex flex-col items-center">
+              <Avatar seed={data.creator_display_name} size="lg" />
+              <h1 className="mt-4 text-xl font-semibold text-text-primary">
+                {data.creator_display_name}
+              </h1>
+              <p className="mt-1 text-base text-text-secondary">is requesting</p>
+            </div>
+            <p className="mt-6 text-[40px] font-bold leading-none text-text-primary">
+              {data.amount} <span className="text-xl font-semibold text-primary">{data.token}</span>
             </p>
-          ) : !ready ? (
-            <p className="mt-4 text-sm text-white/70">Loading…</p>
-          ) : !authenticated ? (
-            <button
-              type="button"
-              onClick={login}
-              className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14]"
-            >
-              Sign in to pay
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={!wallet?.address || status.type === "sending"}
-              onClick={() => void handlePay()}
-              className="mt-4 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
-            >
-              {status.type === "sending"
-                ? "Processing…"
-                : `Pay ${session.amount} ${session.token}`}
-            </button>
-          )}
-
-          {status.type === "sent" ? (
-            <p className="mt-3 break-all text-xs text-emerald-300/90">
-              Tx: {status.txHash}
-            </p>
-          ) : status.type === "error" ? (
-            <p className="mt-3 text-xs text-red-300/90">{status.message}</p>
-          ) : null}
+            <p className="mt-3 text-xs text-text-muted">Network: Base · Fee: &lt;$0.01</p>
+          </div>
         </section>
+
+        {paid ? (
+          <div className="mt-6 rounded-xl border border-emerald-200 bg-success-subtle p-4 text-center text-success">
+            <Check className="mx-auto h-6 w-6" />
+            <p className="mt-2 text-sm font-semibold">This payment is complete.</p>
+          </div>
+        ) : !payable ? (
+          <div className="mt-6 rounded-xl border border-border bg-background-secondary p-4 text-center">
+            <p className="text-sm font-semibold text-text-primary">
+              {data.status === "expired"
+                ? "This link has expired."
+                : "This link is not payable."}
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">Ask for a new payment link.</p>
+          </div>
+        ) : !ready ? (
+          <div className="mt-6 flex justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : !authenticated ? (
+          <button
+            type="button"
+            onClick={() => login({ loginMethods: ["email", "google", "apple"] })}
+            className="cp-button cp-button-primary mt-6 w-full"
+          >
+            Pay Now
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!wallet?.address || status.type === "sending"}
+            onClick={() => void handlePay()}
+            className="cp-button cp-button-primary mt-6 w-full"
+          >
+            {status.type === "sending" ? <Loader2 className="h-5 w-5 animate-spin" /> : "Pay Now"}
+          </button>
+        )}
+
+        {status.type === "error" ? (
+          <p className="mt-3 rounded-xl bg-error-subtle p-3 text-center text-sm text-error">
+            {status.message}
+          </p>
+        ) : null}
+
+        <footer className="mt-8 flex items-center justify-center gap-1.5 text-xs text-text-muted">
+          <ShieldCheck className="h-4 w-4" />
+          Secured by Privy
+        </footer>
       </div>
     </main>
   );

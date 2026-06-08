@@ -1,42 +1,85 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0B0F19;
-  --foreground: #F0F2F5;
-  --card: #151A2E;
-  --card-border: #1E2538;
-  --accent-success: #00D4AA;
-  --accent-error: #FF6B6B;
-  --text-primary: #F0F2F5;
-  --text-secondary: #8B95A5;
-  --text-muted: #5A6578;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: #ffffff;
+  --background-secondary: #f8fafc;
+  --surface: #ffffff;
+  --primary: #0066ff;
+  --primary-hover: #0052cc;
+  --primary-subtle: #ebf2ff;
+  --success: #10b981;
+  --success-subtle: #ecfdf5;
+  --error: #ef4444;
+  --error-subtle: #fef2f2;
+  --warning: #f59e0b;
+  --warning-subtle: #fffbeb;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --border-focus: #0066ff;
+  --font-sans: var(--font-inter);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-border: var(--card-border);
-  --color-accent-success: var(--accent-success);
-  --color-accent-error: var(--accent-error);
+  --color-background-secondary: var(--background-secondary);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-error: var(--error);
+  --color-error-subtle: var(--error-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-border: var(--border);
+  --color-border-focus: var(--border-focus);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #ffffff;
+  color-scheme: light;
 }
 
 body {
-  background: #0B0F19;
-  color: #F0F2F5;
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-width: 320px;
+  overflow-x: hidden;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+::selection {
+  background: #ebf2ff;
+  color: #0f172a;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -46,118 +89,229 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1E2538;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 999px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #2A3550;
-}
-
-/* Input autofill fix for dark theme */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px #0F1420 inset;
-  -webkit-text-fill-color: #F0F2F5;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #0f172a;
 }
 
-/* Smooth focus transitions */
-input, button, textarea {
-  transition: all 0.2s ease;
+.screen {
+  min-height: 100dvh;
+  background: #ffffff;
+  color: #0f172a;
 }
 
-/* Modal animation */
-@keyframes modalFadeIn {
+.screen-muted {
+  min-height: 100dvh;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.mobile-shell {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.safe-bottom {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.with-tabbar {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.cp-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.cp-card-elevated {
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.cp-input {
+  height: 48px;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0 16px;
+  color: #0f172a;
+  font-size: 16px;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.cp-input::placeholder {
+  color: #94a3b8;
+}
+
+.cp-input:focus {
+  border-color: #0066ff;
+  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
+}
+
+.cp-input-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.cp-input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.cp-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.cp-button:focus-visible,
+.icon-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
+}
+
+.cp-button-primary {
+  border: 0;
+  background: #0066ff;
+  color: #ffffff;
+}
+
+.cp-button-primary:hover:not(:disabled) {
+  background: #0052cc;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+}
+
+.cp-button-secondary {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.cp-button-secondary:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.cp-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.icon-button {
+  display: inline-flex;
+  min-height: 40px;
+  min-width: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.icon-button:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.animate-screen-in {
+  animation: screenIn 250ms ease-out both;
+}
+
+.animate-sheet-in {
+  animation: sheetIn 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-pulse-scale {
+  animation: pulseScale 1800ms ease-in-out infinite;
+}
+
+.toast-enter {
+  animation: toastEnter 220ms ease-out both;
+}
+
+@keyframes screenIn {
   from {
     opacity: 0;
+    transform: translateX(16px);
   }
   to {
     opacity: 1;
+    transform: translateX(0);
   }
 }
 
-@keyframes modalScaleIn {
+@keyframes sheetIn {
   from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes checkmarkDraw {
-  from {
-    stroke-dashoffset: 24;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes circleScale {
-  from {
-    transform: scale(0);
-  }
-  to {
-    transform: scale(1);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(10px);
-    opacity: 0;
+    transform: translateY(100%);
   }
   to {
     transform: translateY(0);
-    opacity: 1;
   }
 }
 
-@keyframes fadeIn {
+@keyframes pulseScale {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes toastEnter {
   from {
     opacity: 0;
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.modal-backdrop {
-  animation: modalFadeIn 0.2s ease;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
 }
-
-.modal-panel {
-  animation: modalScaleIn 0.2s ease;
-}
-
-.checkmark-circle {
-  animation: circleScale 0.3s ease backwards;
-}
-
-.checkmark-path {
-  stroke-dasharray: 24;
-  animation: checkmarkDraw 0.4s 0.2s ease forwards;
-}
-
-.slide-up {
-  animation: slideUp 0.3s ease backwards;
-}
-
-.fade-in {
-  animation: fadeIn 0.2s ease backwards;
-}
-
-/* Stagger children animations */
-.stagger-children > * {
-  animation: slideUp 0.3s ease backwards;
-}
-
-.stagger-children > *:nth-child(1) { animation-delay: 0s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.1s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.2s; }

@@ -24,9 +24,9 @@ type ResolvedProfile = {
 
 type ResolveState =
   | { status: "idle" }
-  | { status: "loading" }
-  | { status: "found"; profile: ResolvedProfile }
-  | { status: "not_found" };
+  | { status: "loading"; username: string }
+  | { status: "found"; username: string; profile: ResolvedProfile }
+  | { status: "not_found"; username: string };
 
 type Toast = {
   id: number;
@@ -67,12 +67,8 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
   const [resolveState, setResolveState] = useState<ResolveState>({ status: "idle" });
 
   useEffect(() => {
-    if (!authenticated || !canLookup) {
-      setResolveState({ status: "idle" });
-      return;
-    }
+    if (!authenticated || !canLookup) return;
 
-    setResolveState({ status: "loading" });
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
     let cancelled = false;
@@ -83,19 +79,19 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
       .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) {
-          setResolveState({ status: "not_found" });
+          setResolveState({ status: "not_found", username });
           return;
         }
         const json = (await res.json()) as { profile?: ResolvedProfile };
         if (!json.profile?.wallet_address) {
-          setResolveState({ status: "not_found" });
+          setResolveState({ status: "not_found", username });
           return;
         }
-        setResolveState({ status: "found", profile: json.profile });
+        setResolveState({ status: "found", username, profile: json.profile });
       })
       .catch(() => {
         if (!cancelled) {
-          setResolveState({ status: "not_found" });
+          setResolveState({ status: "not_found", username });
         }
       })
       .finally(() => {
@@ -109,10 +105,17 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
     };
   }, [authenticated, canLookup, username]);
 
+  const displayedResolveState: ResolveState =
+    !authenticated || !canLookup
+      ? { status: "idle" }
+      : "username" in resolveState && resolveState.username === username
+        ? resolveState
+        : { status: "loading", username };
+
   const toAddress =
-    resolveState.status === "found" ? resolveState.profile.wallet_address : undefined;
-  const userNotFound = resolveState.status === "not_found";
-  const isLookingUp = resolveState.status === "loading";
+    displayedResolveState.status === "found" ? displayedResolveState.profile.wallet_address : undefined;
+  const userNotFound = displayedResolveState.status === "not_found";
+  const isLookingUp = displayedResolveState.status === "loading";
   const sameAsSender =
     fromAddress && toAddress && fromAddress.toLowerCase() === toAddress.toLowerCase();
 
@@ -154,7 +157,7 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
           },
           body: JSON.stringify({
             to_username:
-              resolveState.status === "found" ? resolveState.profile.username : undefined,
+              displayedResolveState.status === "found" ? displayedResolveState.profile.username : undefined,
             to_wallet_address: toAddress,
             amount,
             tx_hash: result.hash,
@@ -164,7 +167,10 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
         // Non-blocking for MVP: chain tx is source of truth.
       }
       setStatus({ type: "sent", txHash: result.hash });
-      const recipientLabel = resolveState.status === "found" ? `@${resolveState.profile.username}` : "recipient";
+      const recipientLabel =
+        displayedResolveState.status === "found"
+          ? `@${displayedResolveState.profile.username}`
+          : "recipient";
       addToast(`Sent ${amount} USDC to ${recipientLabel}`, "success");
     } catch (err) {
       const msg = sanitizeTransactionError(err);
@@ -172,13 +178,6 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
       addToast(msg, "error");
     }
   }
-
-  const recipientLabel =
-    resolveState.status === "found"
-      ? `@${resolveState.profile.username}${
-          resolveState.profile.display_name ? ` (${resolveState.profile.display_name})` : ""
-        }`
-      : "";
 
   if (!authenticated) return null;
 
@@ -246,7 +245,7 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1E2538] border-t-[#00D4AA]" />
                 </div>
               )}
-              {resolveState.status === "found" && (
+              {displayedResolveState.status === "found" && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
@@ -257,15 +256,15 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
 
             {/* Lookup status */}
             <div className="mt-1.5 min-h-[18px]">
-              {resolveState.status === "found" ? (
+              {displayedResolveState.status === "found" ? (
                 <div className="flex items-center gap-2">
                   <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#00D4AA]/10 text-[10px] font-semibold text-[#00D4AA]">
-                    {resolveState.profile.username[0].toUpperCase()}
+                    {displayedResolveState.profile.username[0].toUpperCase()}
                   </div>
                   <p className="text-xs text-[#00D4AA]">
-                    {resolveState.profile.display_name
-                      ? `${resolveState.profile.display_name} (@${resolveState.profile.username})`
-                      : `@${resolveState.profile.username}`}
+                    {displayedResolveState.profile.display_name
+                      ? `${displayedResolveState.profile.display_name} (@${displayedResolveState.profile.username})`
+                      : `@${displayedResolveState.profile.username}`}
                   </p>
                 </div>
               ) : userNotFound ? (
