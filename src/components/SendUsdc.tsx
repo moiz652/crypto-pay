@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { USDC } from "@/lib/usdc";
 import {
@@ -28,6 +28,12 @@ type ResolveState =
   | { status: "found"; profile: ResolvedProfile }
   | { status: "not_found" };
 
+type Toast = {
+  id: number;
+  message: string;
+  type: "success" | "error";
+};
+
 export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
   const { authenticated, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
@@ -45,6 +51,15 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
     | { type: "sent"; txHash: string }
     | { type: "error"; message: string }
   >({ type: "idle" });
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const addToast = useCallback((message: string, type: "success" | "error") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }, []);
 
   const username = useMemo(() => normalizeUsername(toUsername), [toUsername]);
   const canLookup = username.length >= 2;
@@ -125,12 +140,10 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
         decimals: USDC.decimals,
       });
 
-      // Privy handles the native confirmation UI, gas estimation, and receipt
       const result = await sendTransaction(
         { to: tx.to, data: tx.data },
         { address: wallet.address },
       );
-
       try {
         const token = await getAccessToken();
         await fetch("/api/transfers", {
@@ -151,74 +164,153 @@ export function SendUsdc({ fromAddress }: { fromAddress?: `0x${string}` }) {
         // Non-blocking for MVP: chain tx is source of truth.
       }
       setStatus({ type: "sent", txHash: result.hash });
+      const recipientLabel = resolveState.status === "found" ? `@${resolveState.profile.username}` : "recipient";
+      addToast(`Sent ${amount} USDC to ${recipientLabel}`, "success");
     } catch (err) {
-      setStatus({
-        type: "error",
-        message: sanitizeTransactionError(err),
-      });
+      const msg = sanitizeTransactionError(err);
+      setStatus({ type: "error", message: msg });
+      addToast(msg, "error");
     }
   }
 
+  const recipientLabel =
+    resolveState.status === "found"
+      ? `@${resolveState.profile.username}${
+          resolveState.profile.display_name ? ` (${resolveState.profile.display_name})` : ""
+        }`
+      : "";
+
+  if (!authenticated) return null;
+
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p className="text-sm font-semibold">Send USDC</p>
-      <p className="mt-1 text-xs text-white/60">
-        Send on Base using <span className="font-mono">@username</span>.
-      </p>
-
-      <div className="mt-3 grid gap-2">
-        <input
-          value={toUsername}
-          onChange={(e) => setToUsername(e.target.value)}
-          placeholder="@moiz"
-          className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none placeholder:text-white/30"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="Amount (e.g. 5 or 12.5)"
-          inputMode="decimal"
-          className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none placeholder:text-white/30"
-        />
+    <>
+      {/* Toast notifications */}
+      <div className="fixed inset-x-0 top-4 z-[60] flex flex-col items-center gap-2 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto mx-4 flex items-center gap-2 rounded-xl border px-4 py-3 shadow-lg slide-up ${
+              toast.type === "success"
+                ? "border-[#00D4AA]/20 bg-[#0F1D18] text-[#00D4AA]"
+                : "border-[#FF6B6B]/20 bg-[#1D1010] text-[#FF6B6B]"
+            }`}
+          >
+            {toast.type === "success" ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
+          </div>
+        ))}
       </div>
 
-      <div className="mt-2 text-xs text-white/60">
-        {resolveState.status === "found" ? (
-          <p>
-            Paying <span className="font-mono">@{resolveState.profile.username}</span>
-            {resolveState.profile.display_name ? (
-              <> ({resolveState.profile.display_name})</>
-            ) : null}
-          </p>
-        ) : isLookingUp ? (
-          <p>Looking up recipient…</p>
-        ) : userNotFound ? (
-          <p className="text-red-300/90">User not found</p>
-        ) : null}
-        {sameAsSender ? (
-          <p className="text-red-300/90">Recipient can&apos;t be your own wallet.</p>
-        ) : null}
-      </div>
-
-      <button
-        type="button"
-        disabled={!canSend}
-        onClick={() => void handleSend()}
-        className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] disabled:opacity-50"
-      >
-        {status.type === "sending" ? "Sending…" : "Send"}
-      </button>
-
-      {status.type === "sent" ? (
-        <p className="mt-2 break-all text-xs text-emerald-300/90">
-          Sent. Tx: {status.txHash}
+      <div className="rounded-2xl border border-white/[0.03] bg-[#151A2E] p-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00D4AA]/10">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00D4AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5M5 12l7-7 7 7"/>
+            </svg>
+          </div>
+          <p className="text-sm font-semibold">Send USDC</p>
+        </div>
+        <p className="mt-1 text-xs text-[#8B95A5]">
+          Send on Base using @username
         </p>
-      ) : status.type === "error" ? (
-        <p className="mt-2 text-xs text-red-300/90">{status.message}</p>
-      ) : null}
-    </div>
+
+        <div className="mt-4 space-y-3">
+          {/* Username input */}
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#8B95A5] mb-1.5 block">
+              Recipient
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5A6578] text-sm font-mono">@</span>
+              <input
+                value={toUsername}
+                onChange={(e) => setToUsername(e.target.value)}
+                placeholder="username"
+                className="w-full rounded-xl border border-[#1E2538] bg-[#0B0F19] pl-7 pr-3 py-2.5 text-sm outline-none placeholder:text-[#5A6578] focus:ring-2 focus:ring-[#00D4AA]/50 focus:border-transparent transition-all"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              {isLookingUp && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1E2538] border-t-[#00D4AA]" />
+                </div>
+              )}
+              {resolveState.status === "found" && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Lookup status */}
+            <div className="mt-1.5 min-h-[18px]">
+              {resolveState.status === "found" ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#00D4AA]/10 text-[10px] font-semibold text-[#00D4AA]">
+                    {resolveState.profile.username[0].toUpperCase()}
+                  </div>
+                  <p className="text-xs text-[#00D4AA]">
+                    {resolveState.profile.display_name
+                      ? `${resolveState.profile.display_name} (@${resolveState.profile.username})`
+                      : `@${resolveState.profile.username}`}
+                  </p>
+                </div>
+              ) : userNotFound ? (
+                <p className="text-xs text-[#FF6B6B]">User not found</p>
+              ) : sameAsSender ? (
+                <p className="text-xs text-[#FF6B6B]">Can&apos;t send to yourself</p>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Amount input */}
+          <div>
+            <label className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#8B95A5] mb-1.5 block">
+              Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5A6578] text-sm">$</span>
+              <input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                inputMode="decimal"
+                className="w-full rounded-xl border border-[#1E2538] bg-[#0B0F19] pl-7 pr-14 py-2.5 text-sm outline-none placeholder:text-[#5A6578] focus:ring-2 focus:ring-[#00D4AA]/50 focus:border-transparent transition-all"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[#5A6578]">USDC</span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={!canSend}
+          onClick={() => void handleSend()}
+          className="mt-4 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#070b14] hover:scale-105 hover:brightness-110 transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
+        >
+          {status.type === "sending" ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#070b14]/30 border-t-[#070b14]" />
+              Sending…
+            </div>
+          ) : (
+            "Send"
+          )}
+        </button>
+      </div>
+    </>
   );
 }
