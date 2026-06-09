@@ -85,7 +85,7 @@ export default function WelcomePage() {
             type="button"
             onClick={() => {
               setAuthError("");
-              login();
+              login({ loginMethods: ["email"] });
             }}
             className="cp-button cp-button-secondary w-full"
           >
