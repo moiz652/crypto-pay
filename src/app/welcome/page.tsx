@@ -1,24 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLoginWithEmail, useLoginWithOAuth } from "@privy-io/react-auth";
+import { useLoginWithOAuth, usePrivy } from "@privy-io/react-auth";
 import { Apple, Mail, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { LoadingScreen, MissingPrivyConfig } from "@/components/AppUI";
 import { useCryptoPayAccount } from "@/lib/clientData";
-
-type EmailStep = "closed" | "email" | "code";
 
 export default function WelcomePage() {
   const router = useRouter();
   const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   const { ready, authenticated, username, profileLoading } = useCryptoPayAccount();
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
-  const { sendCode, loginWithCode } = useLoginWithEmail();
-  const [emailStep, setEmailStep] = useState<EmailStep>("closed");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [emailLoading, setEmailLoading] = useState(false);
+  const { login } = usePrivy();
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
@@ -43,38 +37,6 @@ export default function WelcomePage() {
     await initOAuth({ provider: "google" }).catch(() => {
       setAuthError("Could not start Google sign-in. Try again.");
     });
-  }
-
-  async function handleEmailCode() {
-    if (!email.trim()) {
-      setEmailStep("email");
-      return;
-    }
-
-    setAuthError("");
-    setEmailLoading(true);
-    try {
-      await sendCode({ email: email.trim() });
-      setEmailStep("code");
-    } catch {
-      setAuthError("Could not send the email code. Try again.");
-    } finally {
-      setEmailLoading(false);
-    }
-  }
-
-  async function handleCodeLogin() {
-    if (!code.trim()) return;
-
-    setAuthError("");
-    setEmailLoading(true);
-    try {
-      await loginWithCode({ code: code.trim() });
-    } catch {
-      setAuthError("That code did not work. Check it and try again.");
-    } finally {
-      setEmailLoading(false);
-    }
   }
 
   if (!privyAppId) return <MissingPrivyConfig />;
@@ -123,7 +85,7 @@ export default function WelcomePage() {
             type="button"
             onClick={() => {
               setAuthError("");
-              setEmailStep((current) => (current === "closed" ? "email" : "closed"));
+              login();
             }}
             className="cp-button cp-button-secondary w-full"
           >
@@ -131,38 +93,6 @@ export default function WelcomePage() {
             Continue with Email
           </button>
         </div>
-
-        {emailStep !== "closed" ? (
-          <section className="mt-4 space-y-3" aria-label="Email sign in">
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              autoComplete="email"
-              className="cp-input"
-            />
-            {emailStep === "code" ? (
-              <input
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="123456"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                className="cp-input"
-              />
-            ) : null}
-            <button
-              type="button"
-              disabled={emailLoading || (emailStep === "code" ? !code.trim() : !email.trim())}
-              onClick={() => void (emailStep === "code" ? handleCodeLogin() : handleEmailCode())}
-              className="cp-button cp-button-primary w-full"
-            >
-              {emailStep === "code" ? "Verify Code" : "Send Code"}
-            </button>
-          </section>
-        ) : null}
 
         {authError ? (
           <p className="mt-4 rounded-xl bg-error-subtle p-3 text-center text-sm text-error">
