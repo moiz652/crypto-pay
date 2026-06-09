@@ -51,6 +51,7 @@ export async function GET(req: Request) {
             .from("payment_sessions")
             .select("created_at,short_code,amount,token_symbol,status,expires_at,payer_tx_hash")
             .eq("receiver_wallet_address", wallet)
+            .neq("creator_privy_user_id", userId)
             .order("created_at", { ascending: false })
             .limit(10)
         : Promise.resolve({ data: [], error: null }),
