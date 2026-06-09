@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --background-secondary: #f8fafc;
@@ -20,6 +22,26 @@
   --border-focus: #0066ff;
   --font-sans: var(--font-inter);
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.dark {
+  --background: #0b0f19;
+  --background-secondary: #111827;
+  --surface: #151b2b;
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-subtle: #102b5c;
+  --success: #34d399;
+  --success-subtle: #052e25;
+  --error: #f87171;
+  --error-subtle: #3f1218;
+  --warning: #fbbf24;
+  --warning-subtle: #3b2506;
+  --text-primary: #ffffff;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border: #1e293b;
+  --border-focus: #60a5fa;
 }
 
 @theme inline {
@@ -49,15 +71,23 @@
 }
 
 html {
-  background: #ffffff;
+  width: 100%;
+  max-width: 100%;
+  background: var(--background);
   color-scheme: light;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 body {
-  min-width: 320px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: hidden;
-  background: #ffffff;
-  color: #0f172a;
+  overscroll-behavior-x: none;
+  background: var(--background);
+  color: var(--text-primary);
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -76,8 +106,8 @@ button {
 }
 
 ::selection {
-  background: #ebf2ff;
-  color: #0f172a;
+  background: var(--primary-subtle);
+  color: var(--text-primary);
 }
 
 ::-webkit-scrollbar {
@@ -96,27 +126,34 @@ button {
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
-  -webkit-text-fill-color: #0f172a;
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text-primary);
 }
 
 .screen {
   min-height: 100dvh;
-  background: #ffffff;
-  color: #0f172a;
+  max-width: 100%;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  background: var(--background);
+  color: var(--text-primary);
 }
 
 .screen-muted {
   min-height: 100dvh;
-  background: #f8fafc;
-  color: #0f172a;
+  max-width: 100%;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .mobile-shell {
   width: 100%;
-  max-width: 480px;
+  max-width: min(480px, 100%);
   margin: 0 auto;
   padding: 24px;
+  overflow-x: hidden;
 }
 
 .safe-bottom {
@@ -128,26 +165,26 @@ input:-webkit-autofill:focus {
 }
 
 .cp-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .cp-card-elevated {
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .cp-input {
   height: 48px;
   width: 100%;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
   padding: 0 16px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 16px;
   outline: none;
   transition:
@@ -157,21 +194,21 @@ input:-webkit-autofill:focus {
 }
 
 .cp-input::placeholder {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .cp-input:focus {
-  border-color: #0066ff;
+  border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
 }
 
 .cp-input-error {
-  border-color: #ef4444;
-  background: #fef2f2;
+  border-color: var(--error);
+  background: var(--error-subtle);
 }
 
 .cp-input-error:focus {
-  border-color: #ef4444;
+  border-color: var(--error);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
@@ -202,24 +239,24 @@ input:-webkit-autofill:focus {
 
 .cp-button-primary {
   border: 0;
-  background: #0066ff;
+  background: var(--primary);
   color: #ffffff;
 }
 
 .cp-button-primary:hover:not(:disabled) {
-  background: #0052cc;
+  background: var(--primary-hover);
   box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
 }
 
 .cp-button-secondary {
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #0f172a;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
 }
 
 .cp-button-secondary:hover:not(:disabled) {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  border-color: var(--text-muted);
+  background: var(--background-secondary);
 }
 
 .cp-button:disabled {
@@ -235,8 +272,8 @@ input:-webkit-autofill:focus {
   justify-content: center;
   border: 0;
   border-radius: 10px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--background-secondary);
+  color: var(--text-secondary);
   transition:
     background-color 160ms ease,
     color 160ms ease,
@@ -244,8 +281,8 @@ input:-webkit-autofill:focus {
 }
 
 .icon-button:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--border);
+  color: var(--text-primary);
 }
 
 .animate-screen-in {

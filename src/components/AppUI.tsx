@@ -177,7 +177,7 @@ export function BottomTabs() {
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white dark:bg-[#151B2B]">
       <div className="mx-auto grid h-16 max-w-[480px] grid-cols-3 pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
@@ -227,7 +227,7 @@ export function ActivityList({
   return (
     <div className="space-y-2">
       {visible.map((item) => (
-        <Link key={item.id} href={item.href} className="cp-card flex items-center gap-3 p-3 transition hover:border-slate-300 hover:shadow-sm">
+        <Link key={item.id} href={item.href} className="cp-card flex items-center gap-3 p-3 transition hover:border-slate-300 hover:shadow-sm dark:hover:border-slate-600">
           <ActivityIcon type={item.type} status={item.status} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-text-primary">{item.title}</p>

@@ -96,7 +96,7 @@ function HomeScreen() {
         </Drawer.Trigger>
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm" />
-          <Drawer.Content className="animate-sheet-in fixed inset-x-0 bottom-0 z-50 rounded-t-[24px] bg-white px-6 pb-[calc(24px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
+          <Drawer.Content className="animate-sheet-in fixed inset-x-0 bottom-0 z-50 rounded-t-[24px] bg-white px-6 pb-[calc(24px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] dark:bg-[#151B2B]">
             <div className="mx-auto h-1 w-10 rounded-full bg-border" />
             <Drawer.Title className="mt-6 text-center text-xl font-semibold text-text-primary">
               New payment

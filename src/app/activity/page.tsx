@@ -51,7 +51,7 @@ function ActivityScreen() {
           {isValidating ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : null}
         </header>
 
-        <div className="mt-6 flex rounded-full bg-white p-1 shadow-sm">
+        <div className="mt-6 flex rounded-full bg-white p-1 shadow-sm dark:bg-[#151B2B]">
           {filters.map((entry) => (
             <button
               key={entry.id}
@@ -59,7 +59,9 @@ function ActivityScreen() {
               onClick={() => setFilter(entry.id)}
               className={cn(
                 "min-h-10 flex-1 rounded-full px-3 text-sm font-medium transition",
-                filter === entry.id ? "bg-text-primary text-white" : "text-text-secondary",
+                filter === entry.id
+                  ? "bg-text-primary text-white dark:bg-primary"
+                  : "text-text-secondary dark:text-slate-300",
               )}
             >
               {entry.label}

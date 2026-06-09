@@ -54,6 +54,7 @@ Open `http://localhost:3000`.
 
 - The `/api/sessions/[code]/pay` endpoint **records** the tx hash but does **not** verify on-chain receipt yet.
 - RLS policies are not fully designed; MVP uses server-side Supabase service role for writes/reads.
+- Google sign-in starts through Privy's headless OAuth flow so CryptoPay bypasses Privy's login modal, but Google's mobile account chooser vs. One Tap surface is still selected by Google after redirect and is not forced by Privy's local React config.
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

@@ -221,19 +221,23 @@ export function normalizeActivity(activity?: ActivityPayload | null): ActivityIt
     href: `/activity/${encodeURIComponent(r.short_code)}`,
   }));
 
-  const received: ActivityItem[] = (activity.receivedRequests ?? []).map((r) => ({
-    id: `${r.short_code}-received`,
-    type: "received",
-    createdAt: r.created_at,
-    title: r.status === "paid" ? "Payment received" : "Incoming request",
-    subtitle: `${formatDate(r.created_at)} · ${humanStatus(r.status)}`,
-    amount: `+${r.amount}`,
-    token: r.token_symbol,
-    status: r.status,
-    txHash: r.payer_tx_hash,
-    shortCode: r.short_code,
-    href: `/activity/${encodeURIComponent(r.short_code)}`,
-  }));
+  const received: ActivityItem[] = (activity.receivedRequests ?? []).map((r) => {
+    const paid = r.status === "paid";
+
+    return {
+      id: `${r.short_code}-${paid ? "received" : "incoming"}`,
+      type: paid ? "received" : "request",
+      createdAt: r.created_at,
+      title: paid ? "Payment received" : "Incoming request",
+      subtitle: `${formatDate(r.created_at)} · ${humanStatus(r.status)}`,
+      amount: paid ? `+${r.amount}` : r.amount,
+      token: r.token_symbol,
+      status: r.status,
+      txHash: r.payer_tx_hash,
+      shortCode: r.short_code,
+      href: `/activity/${encodeURIComponent(r.short_code)}`,
+    };
+  });
 
   return [...sent, ...requests, ...received].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -247,7 +251,8 @@ export function findActivityItem(activity: ActivityPayload | undefined, id: stri
       item.id === decoded ||
       item.txHash === decoded ||
       item.shortCode === decoded ||
-      item.id === `${decoded}-received`,
+      item.id === `${decoded}-received` ||
+      item.id === `${decoded}-incoming`,
   );
 }
 

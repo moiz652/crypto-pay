@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
 import { Check, Loader2, ShieldCheck } from "lucide-react";
@@ -31,7 +32,8 @@ type PreparePayload = {
 };
 
 export function PayLinkClient({ code }: { code: string }) {
-  const { ready, authenticated, login, getAccessToken } = usePrivy();
+  const router = useRouter();
+  const { ready, authenticated, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
 
@@ -108,6 +110,11 @@ export function PayLinkClient({ code }: { code: string }) {
     }
   }
 
+  function handleAuthRedirect() {
+    window.sessionStorage.setItem("cryptopay-post-login", `/s/${encodeURIComponent(code)}`);
+    router.push("/welcome");
+  }
+
   if (error) {
     return (
       <main className="screen">
@@ -177,7 +184,7 @@ export function PayLinkClient({ code }: { code: string }) {
         ) : !authenticated ? (
           <button
             type="button"
-            onClick={() => login({ loginMethods: ["email", "google", "apple"] })}
+            onClick={handleAuthRedirect}
             className="cp-button cp-button-primary mt-6 w-full"
           >
             Pay Now

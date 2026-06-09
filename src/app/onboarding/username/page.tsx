@@ -130,7 +130,7 @@ function UsernameOnboarding() {
               autoCorrect="off"
               spellCheck={false}
               className={cn(
-                "cp-input px-9",
+                "cp-input !pl-10 !pr-10",
                 displayedAvailability.type === "taken" || displayedAvailability.type === "error"
                   ? "cp-input-error"
                   : false,

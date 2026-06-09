@@ -233,7 +233,7 @@ function SendScreen() {
                   autoCorrect="off"
                   spellCheck={false}
                   className={cn(
-                    "cp-input px-9",
+                    "cp-input !pl-10 !pr-10",
                     displayedResolveState.status === "not_found" || sameAsSender ? "cp-input-error" : false,
                   )}
                 />
@@ -273,7 +273,7 @@ function SendScreen() {
                   }}
                   placeholder="0.00"
                   inputMode="decimal"
-                  className="cp-input px-9 pr-16"
+                  className="cp-input !pl-10 !pr-16"
                 />
                 <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-text-muted">
                   USDC

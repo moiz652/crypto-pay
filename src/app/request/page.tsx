@@ -85,7 +85,7 @@ function RequestScreen() {
               }}
               placeholder="0.00"
               inputMode="decimal"
-              className="cp-input px-9 pr-16"
+              className="cp-input !pl-10 !pr-16"
             />
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-text-muted">
               USDC
