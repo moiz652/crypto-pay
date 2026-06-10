@@ -21,6 +21,12 @@ export async function POST(req: Request) {
   const disabled = await requireFeatureEnabled("payment_sessions");
   if (disabled) return disabled;
 
+  const sessionsCreateDisabled = await requireFeatureEnabled("sessions_create");
+  if (sessionsCreateDisabled) return sessionsCreateDisabled;
+
+  const allWritesDisabled = await requireFeatureEnabled("all_writes");
+  if (allWritesDisabled) return allWritesDisabled;
+
   let userId: string;
   try {
     userId = await requirePrivyUserIdFromRequest(req);

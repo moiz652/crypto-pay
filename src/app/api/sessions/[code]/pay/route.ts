@@ -19,6 +19,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const disabled = await requireFeatureEnabled("payment_sessions");
   if (disabled) return disabled;
 
+  const allWritesDisabled = await requireFeatureEnabled("all_writes");
+  if (allWritesDisabled) return allWritesDisabled;
+
   const params = await ctx.params;
   const paramsParsed = paramsSchema.safeParse({ code: params.code });
   if (!paramsParsed.success) {

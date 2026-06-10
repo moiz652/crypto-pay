@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, X } from "lucide-react";
 import { ProgressDots, RequireAuth, ScreenHeader, cn } from "@/components/AppUI";
 import { isValidUsername, normalizeUsername, useCryptoPayAccount } from "@/lib/clientData";
 
@@ -141,6 +141,13 @@ function UsernameOnboarding() {
           <p className={cn("mt-2 min-h-5 text-sm", statusClass(displayedAvailability))}>
             {statusText(displayedAvailability, normalized)}
           </p>
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-warning-subtle p-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <p className="text-xs text-text-secondary">
+              <span className="font-semibold text-warning">This username is permanent.</span>{" "}
+              Choose carefully - you will not be able to change it later.
+            </p>
+          </div>
         </div>
 
         <div className="mt-8 space-y-3">

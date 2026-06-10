@@ -92,7 +92,10 @@ insert into public.feature_flags (feature_name, enabled) values
   ('payment_sessions', true),
   ('transfers', true),
   ('users_resolve', true),
-  ('activity', true)
+  ('activity', true),
+  ('signups', true),
+  ('sessions_create', true),
+  ('all_writes', true)
 on conflict (feature_name) do nothing;
 
 alter table public.feature_flags enable row level security;

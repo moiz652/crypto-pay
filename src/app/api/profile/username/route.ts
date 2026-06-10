@@ -26,6 +26,12 @@ export async function POST(req: Request) {
   const disabled = await requireFeatureEnabled("profile_sync");
   if (disabled) return disabled;
 
+  const signupsDisabled = await requireFeatureEnabled("signups");
+  if (signupsDisabled) return signupsDisabled;
+
+  const allWritesDisabled = await requireFeatureEnabled("all_writes");
+  if (allWritesDisabled) return allWritesDisabled;
+
   const token = getBearerToken(req);
   if (!token) return NextResponse.json({ error: "missing_auth" }, { status: 401 });
 

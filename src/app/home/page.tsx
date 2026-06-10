@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Drawer } from "vaul";
@@ -29,13 +30,25 @@ export default function HomePage() {
 function HomeScreen() {
   const router = useRouter();
   const { username, email, phone, address } = useCryptoPayAccount();
-  const { display } = useUsdcBalance(address);
+  const startY = useRef<number | null>(null);
+  const { display, mutate: refreshBalance } = useUsdcBalance(address);
   const { data: activity } = useActivity();
   const items = normalizeActivity(activity);
   const identity = username ? `@${username}` : email ?? phone ?? "Profile";
 
   return (
-    <main className="screen-muted">
+    <main
+      className="screen-muted"
+      onTouchStart={(event) => {
+        startY.current = event.touches[0]?.clientY ?? null;
+      }}
+      onTouchEnd={(event) => {
+        if (startY.current === null) return;
+        const endY = event.changedTouches[0]?.clientY ?? startY.current;
+        if (endY - startY.current > 80) void refreshBalance();
+        startY.current = null;
+      }}
+    >
       <div className="mobile-shell with-tabbar animate-screen-in min-h-dvh px-6 py-6">
         <header className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-text-primary">Crypto Pay</h1>

@@ -162,7 +162,13 @@ export function useUsdcBalance(address?: `0x${string}`) {
       });
       return bal;
     },
-    { refreshInterval: 15_000 },
+    {
+      refreshInterval: () =>
+        typeof document !== "undefined" && document.visibilityState === "visible"
+          ? 30_000
+          : 0,
+      revalidateOnFocus: true,
+    },
   );
 
   const formatted = Number(formatUnits(data ?? BigInt(0), USDC.decimals));
@@ -187,7 +193,13 @@ export function useActivity() {
       if (!res.ok) throw new Error("activity_failed");
       return res.json() as Promise<ActivityPayload>;
     },
-    { refreshInterval: 15_000 },
+    {
+      refreshInterval: () =>
+        typeof document !== "undefined" && document.visibilityState === "visible"
+          ? 30_000
+          : 0,
+      revalidateOnFocus: true,
+    },
   );
 }
 

@@ -20,11 +20,15 @@ const LIMITS: Record<RateLimitPreset, { requests: number; window: `${number} s` 
 };
 
 const limiters = new Map<RateLimitPreset, Ratelimit>();
+let redisAvailable: boolean | null = null;
 
 function getLimiter(preset: RateLimitPreset): Ratelimit | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) {
+    redisAvailable = false;
+    return null;
+  }
 
   let limiter = limiters.get(preset);
   if (!limiter) {
@@ -36,6 +40,7 @@ function getLimiter(preset: RateLimitPreset): Ratelimit | null {
     });
     limiters.set(preset, limiter);
   }
+  redisAvailable = true;
   return limiter;
 }
 
@@ -52,10 +57,21 @@ export async function enforceRateLimit(
   preset: RateLimitPreset,
 ): Promise<NextResponse | null> {
   const limiter = getLimiter(preset);
-  if (!limiter) return null;
+  if (!limiter) {
+    return NextResponse.json({ error: "rate_limiter_unavailable" }, { status: 429 });
+  }
 
   const ip = getClientIp(req);
-  const { success, limit, remaining, reset } = await limiter.limit(ip);
+  let result: Awaited<ReturnType<Ratelimit["limit"]>>;
+  try {
+    result = await limiter.limit(ip);
+    redisAvailable = true;
+  } catch {
+    redisAvailable = false;
+    return NextResponse.json({ error: "rate_limiter_unavailable" }, { status: 429 });
+  }
+
+  const { success, limit, remaining, reset } = result;
 
   if (!success) {
     return NextResponse.json(

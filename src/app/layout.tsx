@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { Providers } from "@/components/Providers";
 
 const inter = Inter({
@@ -37,7 +39,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full max-w-full flex-col overflow-x-hidden" suppressHydrationWarning>
-        <Providers>{children}</Providers>
+        <OfflineBanner />
+        <ErrorBoundary>
+          <Providers>{children}</Providers>
+        </ErrorBoundary>
         <InstallPrompt />
       </body>
     </html>
