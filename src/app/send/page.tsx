@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSendTransaction } from "@privy-io/react-auth";
-import { AlertTriangle, Check, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import {
   Avatar,
   DetailRow,
@@ -63,7 +63,6 @@ function SendScreen() {
   const [toUsername, setToUsername] = useState("");
   const [amount, setAmount] = useState("");
   const [reviewing, setReviewing] = useState(false);
-  const [confirmedIrreversible, setConfirmedIrreversible] = useState(false);
   const [resolveState, setResolveState] = useState<ResolveState>({ status: "idle" });
   const [status, setStatus] = useState<SendStatus>({ type: "idle" });
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -228,7 +227,6 @@ function SendScreen() {
                   onChange={(event) => {
                     setToUsername(normalizeUsername(event.target.value));
                     setReviewing(false);
-                    setConfirmedIrreversible(false);
                   }}
                   placeholder="username"
                   autoCapitalize="none"
@@ -272,7 +270,6 @@ function SendScreen() {
                   onChange={(event) => {
                     setAmount(event.target.value);
                     setReviewing(false);
-                    setConfirmedIrreversible(false);
                   }}
                   placeholder="0.00"
                   inputMode="decimal"
@@ -288,10 +285,7 @@ function SendScreen() {
             <button
               type="button"
               disabled={!canReview}
-              onClick={() => {
-                setReviewing(true);
-                setConfirmedIrreversible(false);
-              }}
+              onClick={() => setReviewing(true)}
               className="cp-button cp-button-primary w-full"
             >
               Review
@@ -318,36 +312,10 @@ function SendScreen() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-warning bg-warning-subtle p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-                <div>
-                  <p className="text-sm font-semibold text-text-primary">
-                    Crypto transactions cannot be reversed
-                  </p>
-                  <p className="mt-1 text-xs text-text-secondary">
-                    Once sent, this transaction is permanent and cannot be undone. Please verify
-                    the recipient and amount before confirming.
-                  </p>
-                </div>
-              </div>
-              <label className="mt-3 flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={confirmedIrreversible}
-                  onChange={(event) => setConfirmedIrreversible(event.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                />
-                <span className="text-xs font-medium text-text-secondary">
-                  I understand this cannot be undone
-                </span>
-              </label>
-            </div>
-
             <div className="mt-6 space-y-3">
               <button
                 type="button"
-                disabled={status.type === "sending" || !confirmedIrreversible}
+                disabled={status.type === "sending"}
                 onClick={() => void handleSend()}
                 className="cp-button cp-button-primary w-full"
               >
@@ -360,10 +328,7 @@ function SendScreen() {
               <button
                 type="button"
                 disabled={status.type === "sending"}
-                onClick={() => {
-                  setReviewing(false);
-                  setConfirmedIrreversible(false);
-                }}
+                onClick={() => setReviewing(false)}
                 className="cp-button cp-button-secondary w-full"
               >
                 Cancel

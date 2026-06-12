@@ -24,9 +24,6 @@ export async function POST(req: Request) {
   const disabled = await requireFeatureEnabled("profile_sync");
   if (disabled) return disabled;
 
-  const allWritesDisabled = await requireFeatureEnabled("all_writes");
-  if (allWritesDisabled) return allWritesDisabled;
-
   const privy = getPrivyClient();
   const supabaseAdmin = getSupabaseAdmin();
 

@@ -3,7 +3,6 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { useEffect } from "react";
 import { base } from "viem/chains";
-import { SessionTimeout } from "@/components/SessionTimeout";
 import { THEME_STORAGE_KEY, applyThemeChoice, readThemeChoice } from "@/lib/theme";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -32,7 +31,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         supportedChains: [base],
       }}
     >
-      <SessionTimeout />
       {themedChildren}
     </PrivyProvider>
   );
