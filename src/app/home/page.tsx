@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Drawer } from "vaul";
@@ -28,25 +29,52 @@ export default function HomePage() {
 
 function HomeScreen() {
   const router = useRouter();
-  const { username, email, phone, address } = useCryptoPayAccount();
-  const { display } = useUsdcBalance(address);
+  const { username, email, phone, address, profileLoading } =
+    useCryptoPayAccount();
+  const startY = useRef<number | null>(null);
+  const { display, mutate: refreshBalance } = useUsdcBalance(address);
   const { data: activity } = useActivity();
   const items = normalizeActivity(activity);
-  const identity = username ? `@${username}` : email ?? phone ?? "Profile";
+
+  // Stable avatar seed so the header avatar letter never flickers.
+  // email/phone are available from Privy immediately; username loads ~500ms later.
+  const avatarSeed = email ?? phone ?? username ?? "user";
+
+  // Display text under the balance: empty string while loading (no email flash),
+  // then @username once the profile resolves.
+  const identity = username
+    ? `@${username}`
+    : profileLoading
+      ? ""
+      : email ?? phone ?? "Profile";
 
   return (
-    <main className="screen-muted">
+    <main
+      className="screen-muted"
+      onTouchStart={(event) => {
+        startY.current = event.touches[0]?.clientY ?? null;
+      }}
+      onTouchEnd={(event) => {
+        if (startY.current === null) return;
+        const endY = event.changedTouches[0]?.clientY ?? startY.current;
+        if (endY - startY.current > 80) void refreshBalance();
+        startY.current = null;
+      }}
+    >
       <div className="mobile-shell with-tabbar animate-screen-in min-h-dvh px-6 py-6">
         <header className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-text-primary">Crypto Pay</h1>
           <Link href="/settings" aria-label="Open settings">
-            <Avatar seed={identity} size="sm" />
+            {/* avatarSeed stays constant so the header avatar never changes */}
+            <Avatar seed={avatarSeed} size="sm" />
           </Link>
         </header>
 
         <section className="cp-card-elevated mt-6 p-5">
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-medium text-text-secondary">Your balance</p>
+            <p className="text-[13px] font-medium text-text-secondary">
+              Your balance
+            </p>
             <span className="rounded-full bg-primary-subtle px-2.5 py-1 text-xs font-medium text-primary">
               Base
             </span>
@@ -59,7 +87,10 @@ function HomeScreen() {
               USDC
             </span>
           </div>
-          <p className="mt-3 truncate text-sm text-text-secondary">{identity}</p>
+          {/* min-h prevents layout shift when identity is empty string while loading */}
+          <p className="mt-3 min-h-[1.25rem] truncate text-sm text-text-secondary">
+            {identity}
+          </p>
         </section>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -75,7 +106,9 @@ function HomeScreen() {
 
         <section className="cp-card mt-5 p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-text-primary">Recent activity</h2>
+            <h2 className="text-base font-semibold text-text-primary">
+              Recent activity
+            </h2>
             <Link href="/activity" className="text-sm font-semibold text-primary">
               View all
             </Link>
