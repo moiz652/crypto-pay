@@ -352,3 +352,25 @@ input:-webkit-autofill:focus {
     transition-duration: 1ms !important;
   }
 }
+
+
+/* ────────────────────────────────
+   Prevents text selection, long-press callout menus, and tap flash on mobile.
+   This makes the PWA feel like a native app instead of a webpage.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+   body,
+   .mobile-shell {
+     -webkit-user-select: none;      /* Safari / iOS */
+     user-select: none;              /* Standard */
+     -webkit-tap-highlight-color: transparent; /* removes blue flash on Android tap */
+     -webkit-touch-callout: none;    /* iOS: suppresses long-press "Save Image" etc. */
+   }
+   
+   /* Re-enable text entry in all interactive form controls */
+   input,
+   textarea,
+   [contenteditable="true"] {
+     -webkit-user-select: text;
+     user-select: text;
+   }

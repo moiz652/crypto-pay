@@ -57,9 +57,49 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { ready, authenticated } = useCryptoPayAccount();
 
+  // Privy requires network access to initialize — `ready` stays false
+  // indefinitely when offline, making LoadingScreen spin forever.
+  // Detect offline early and show the offline message immediately.
+  const [isOffline, setIsOffline] = useState(
+    typeof window !== "undefined" ? !navigator.onLine : false,
+  );
+
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => {
+      setIsOffline(false);
+      // Privy does not auto-retry after network recovery.
+      // Reload so it can fully re-initialize with the restored connection.
+      if (!ready) window.location.reload();
+    };
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+  }, [ready]);
+
   useEffect(() => {
     if (ready && !authenticated) router.replace("/welcome");
   }, [authenticated, ready, router]);
+
+  // Not ready + offline = Privy cannot initialize. Show offline message
+  // instead of a spinner that will never resolve.
+  if (!ready && isOffline) {
+    return (
+      <main className="screen-muted">
+        <div className="mobile-shell flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+          <p className="text-xl font-semibold text-text-primary dark:text-white">
+            You're offline
+          </p>
+          <p className="mt-2 text-sm text-text-secondary">
+            Reconnect to continue sending or requesting payments.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (!ready || !authenticated) return <LoadingScreen />;
   return <>{children}</>;
