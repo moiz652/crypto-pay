@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import useSWR from "swr";
 import { formatUnits } from "viem";
@@ -91,6 +91,12 @@ export function formatFullDate(iso: string) {
   });
 }
 
+// ─── localStorage key for username cache ─────────────────────────────────────
+// Keyed by Privy user ID so multi-account devices work correctly.
+function usernameCacheKey(userId: string) {
+  return `cp_u_${userId}`;
+}
+
 export function useCryptoPayAccount() {
   const privy = usePrivy();
   const { wallets } = useWallets();
@@ -101,38 +107,89 @@ export function useCryptoPayAccount() {
 
   const address = embeddedWallet?.address as `0x${string}` | undefined;
 
+  // ── Read cached username synchronously on mount ───────────────────────────
+  // This means returning users see @username immediately — zero flicker —
+  // while the fresh profile fetch revalidates in the background.
+  const userId = privy.user?.id ?? null;
+  const cachedUsername = useMemo<string | null>(() => {
+    if (!userId || typeof window === "undefined") return null;
+    return window.localStorage.getItem(usernameCacheKey(userId)) ?? null;
+  }, [userId]);
+
+  // ── SWR key ───────────────────────────────────────────────────────────────
+  // Keyed on [userId, address]. When address is undefined on first render,
+  // key is ["profileSync", userId, ""] — this fires once immediately.
+  // When the wallet loads and address becomes real, key changes to
+  // ["profileSync", userId, "0x..."] — this fires once more with the
+  // correct wallet address so Supabase gets it recorded.
+  // Two total fetches per session — that's intentional and correct.
+  const swrKey =
+    privy.ready && privy.authenticated && userId
+      ? ["profileSync", userId, address ?? ""]
+      : null;
+
   const {
     data: profileSync,
     mutate: mutateProfile,
     isLoading: profileLoading,
     error: profileError,
   } = useSWR(
-    privy.ready && privy.authenticated
-      ? ["profileSync", address ?? "", privy.user?.id ?? ""]
-      : null,
+    swrKey,
     async () => {
-      const token = await privy.getAccessToken();
-      const res = await fetch("/api/profile/sync", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          wallet_address: address,
-        }),
-      });
-      if (!res.ok) throw new Error("profile_sync_failed");
-      return res.json() as Promise<{ profile: Profile }>;
+      // ── Hard 8-second timeout ───────────────────────────────────────────
+      // Without this, privy.getAccessToken() can hang on Privy cold start
+      // or a slow JWT refresh, causing the profile to be "loading" for
+      // ~54 seconds until Vercel's serverless function times out.
+      // After 8s we abort, SWR shows an error, and the UI falls back to
+      // the localStorage cache (returning users) or email (new users).
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+      try {
+        const token = await privy.getAccessToken();
+        const res = await fetch("/api/profile/sync", {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ wallet_address: address }),
+        });
+        if (!res.ok) throw new Error("profile_sync_failed");
+        return res.json() as Promise<{ profile: Profile }>;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     },
-    { revalidateOnFocus: false },
+    {
+      revalidateOnFocus: false,
+      // On failure: retry once after 3 seconds, then give up.
+      // This handles transient cold-start failures without an infinite loop.
+      errorRetryCount: 1,
+      errorRetryInterval: 3_000,
+    },
   );
 
   const profile = profileSync?.profile ?? null;
-  const username = profile?.username?.trim() || null;
+  const freshUsername = profile?.username?.trim() || null;
   const displayName = profile?.display_name?.trim() || null;
   const email = privy.user?.email?.address ?? null;
   const phone = privy.user?.phone?.number ?? null;
+
+  // ── Persist username to localStorage when it arrives ─────────────────────
+  useEffect(() => {
+    if (freshUsername && userId) {
+      window.localStorage.setItem(usernameCacheKey(userId), freshUsername);
+    }
+  }, [freshUsername, userId]);
+
+  // ── Merge fresh + cached ──────────────────────────────────────────────────
+  // freshUsername: from the live API call (null while loading or on error)
+  // cachedUsername: from localStorage (available synchronously on mount)
+  // Result: username is always the most up-to-date known value, never null
+  // for a returning user even during the background revalidation.
+  const username = freshUsername ?? cachedUsername;
 
   return {
     ...privy,

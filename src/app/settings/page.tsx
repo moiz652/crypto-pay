@@ -29,22 +29,17 @@ export default function SettingsPage() {
 
 function SettingsScreen() {
   const router = useRouter();
-  const { username, email, phone, address, logout, profileLoading } =
+  const { username, email, phone, address, logout } =
     useCryptoPayAccount();
   const [theme, setTheme] = useState<ThemeChoice>(() => readThemeChoice());
 
-  // Stable avatar seed: email/phone are available immediately from Privy,
-  // so the avatar letter never changes as the profile loads.
+  // Stable avatar seed: email is available instantly from Privy.
   const avatarSeed = email ?? phone ?? username ?? "user";
 
-  // Only show @username once the profile has loaded.
-  // While loading: show a skeleton (no email flicker).
-  // After load: show @username, or fall back to email/phone.
-  const label = username
-    ? `@${username}`
-    : profileLoading
-      ? null
-      : email ?? phone ?? "Connected";
+  // username now includes the localStorage cache from clientData.ts, so
+  // returning users see @username immediately on mount — zero flicker.
+  // New users (first login ever) get a skeleton until the profile loads.
+  const label = username ? `@${username}` : null;
 
   useEffect(() => {
     applyThemeChoice(theme);

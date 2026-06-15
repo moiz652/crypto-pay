@@ -29,7 +29,7 @@ export default function HomePage() {
 
 function HomeScreen() {
   const router = useRouter();
-  const { username, email, phone, address, profileLoading } =
+  const { username, email, phone, address } =
     useCryptoPayAccount();
   const startY = useRef<number | null>(null);
   const { display, mutate: refreshBalance } = useUsdcBalance(address);
@@ -40,13 +40,10 @@ function HomeScreen() {
   // email/phone are available from Privy immediately; username loads ~500ms later.
   const avatarSeed = email ?? phone ?? username ?? "user";
 
-  // Display text under the balance: empty string while loading (no email flash),
-  // then @username once the profile resolves.
-  const identity = username
-    ? `@${username}`
-    : profileLoading
-      ? ""
-      : email ?? phone ?? "Profile";
+  // username includes the localStorage cache from clientData.ts.
+  // Returning users see @username immediately — no flash.
+  // New users (first login) see an empty string while the profile loads.
+  const identity = username ? `@${username}` : "";
 
   return (
     <main
