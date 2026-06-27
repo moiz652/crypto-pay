@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { Providers } from "@/components/Providers";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -36,7 +37,11 @@ export default function RootLayout({
       className={`${inter.variable} h-full max-w-full overflow-x-hidden antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex min-h-full max-w-full flex-col overflow-x-hidden" suppressHydrationWarning>
+      <body
+        className="flex min-h-full max-w-full flex-col overflow-x-hidden"
+        suppressHydrationWarning
+      >
+        <OfflineBanner />
         <Providers>{children}</Providers>
         <InstallPrompt />
       </body>

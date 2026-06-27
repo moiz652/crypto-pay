@@ -1,0 +1,23 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '0 9 * * 1,4'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          node -e "
+          const https = require('https');
+          https.get('${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/profiles?select=id&limit=1', {
+            headers: {
+              apikey: '${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}',
+              Authorization: 'Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}'
+            }
+          }, r => { console.log('Status:', r.statusCode); process.exit(r.statusCode < 400 ? 0 : 1); })
+          .on('error', e => { console.error(e); process.exit(1); });
+          "
