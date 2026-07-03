@@ -14,10 +14,9 @@
  * Flow:
  *   1. Validate request params and body
  *   2. Fetch session from DB (must be pending, not expired)
- *   3. Reject if creator == payer (self-pay guard, best-effort)
- *   4. Verify tx_hash on-chain via verifyUsdcTransfer()
- *   5. Update session to status="paid" with payer_tx_hash
- *   6. Write audit log entry
+ *   3. Verify tx_hash on-chain via verifyUsdcTransfer()
+ *   4. Update session to status="paid" with payer_tx_hash
+ *   5. Write audit log entry
  */
 
 import { NextResponse } from "next/server";
@@ -164,7 +163,7 @@ export async function POST(
   }
 
   // ── Mark session paid ─────────────────────────────────────────────────────
-  const { error: updateError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("payment_sessions")
     .update({
       status: "paid",
@@ -173,13 +172,22 @@ export async function POST(
     .eq("id", session.id)
     // Double-check status is still pending (guards against a race
     // where two payers submit at the same time)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     return NextResponse.json(
       { error: "db_error", detail: updateError.message },
       { status: 500 },
     );
+  }
+  
+  if (!updated) {
+    // Another payer's tx already settled this session between fetch and update.
+    // This payer's tx is real and verified, but don't log a paid event for a
+    // row we didn't actually update.
+    return NextResponse.json({ ok: true, note: "already_settled_by_other_tx" });
   }
 
   // ── Audit log ─────────────────────────────────────────────────────────────
