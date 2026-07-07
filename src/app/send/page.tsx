@@ -176,7 +176,7 @@ function SendScreen() {
       setTimeout(() => router.replace("/home"), 1700);
     } catch (err) {
       const msg = sanitizeTransactionError(err);
-      setStatus({ type: "error", message: msg });
+      setStatus({ type: "idle" });
       addToast(msg, "error");
     }
   }
@@ -227,6 +227,7 @@ function SendScreen() {
                   onChange={(event) => {
                     setToUsername(normalizeUsername(event.target.value));
                     setReviewing(false);
+                    setStatus({ type: "idle" });
                   }}
                   placeholder="username"
                   autoCapitalize="none"
@@ -270,6 +271,7 @@ function SendScreen() {
                   onChange={(event) => {
                     setAmount(event.target.value);
                     setReviewing(false);
+                    setStatus({ type: "idle" });
                   }}
                   placeholder="0.00"
                   inputMode="decimal"
@@ -290,9 +292,6 @@ function SendScreen() {
             >
               Review
             </button>
-            {status.type === "error" ? (
-              <p className="rounded-xl bg-error-subtle p-3 text-sm text-error">{status.message}</p>
-            ) : null}
           </section>
         ) : (
           <section className="mt-8">
@@ -328,7 +327,10 @@ function SendScreen() {
               <button
                 type="button"
                 disabled={status.type === "sending"}
-                onClick={() => setReviewing(false)}
+                onClick={() => {
+                  setReviewing(false);
+                  setStatus({ type: "idle" });
+                }}
                 className="cp-button cp-button-secondary w-full"
               >
                 Cancel
