@@ -7,11 +7,13 @@ import { Check, Loader2 } from "lucide-react";
 import {
   Avatar,
   DetailRow,
+  LoadingScreen,
   RequireAuth,
   ScreenHeader,
   ToastStack,
   cn,
 } from "@/components/AppUI";
+import { FirstSendAcknowledgment } from "@/components/FirstSendAcknowledgment";
 import {
   isValidUsername,
   normalizeUsername,
@@ -57,7 +59,8 @@ export default function SendPage() {
 
 function SendScreen() {
   const router = useRouter();
-  const { authenticated, getAccessToken, embeddedWallet, address } = useCryptoPayAccount();
+  const { authenticated, getAccessToken, embeddedWallet, address, profile, profileLoading, mutateProfile } =
+    useCryptoPayAccount();
   const { display } = useUsdcBalance(address);
   const { sendTransaction } = useSendTransaction();
   const [toUsername, setToUsername] = useState("");
@@ -66,6 +69,8 @@ function SendScreen() {
   const [resolveState, setResolveState] = useState<ResolveState>({ status: "idle" });
   const [status, setStatus] = useState<SendStatus>({ type: "idle" });
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [ackSubmitting, setAckSubmitting] = useState(false);
+  const [ackError, setAckError] = useState("");
 
   const addToast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
@@ -187,6 +192,33 @@ function SendScreen() {
         ? `${displayedResolveState.profile.display_name} (@${displayedResolveState.profile.username})`
         : `@${displayedResolveState.profile.username}`
       : "";
+
+  if (profileLoading || !profile) return <LoadingScreen />;
+  if (profile.acknowledged_irreversibility_at == null) {
+    return (
+      <FirstSendAcknowledgment
+        submitting={ackSubmitting}
+        error={ackError}
+        onAcknowledge={async () => {
+          setAckSubmitting(true);
+          setAckError("");
+          try {
+            const token = await getAccessToken();
+            const res = await fetch("/api/profile/acknowledge-irreversibility", {
+              method: "POST",
+              headers: { authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error("ack_failed");
+            await mutateProfile();
+          } catch {
+            setAckError("Could not save acknowledgment. Try again.");
+          } finally {
+            setAckSubmitting(false);
+          }
+        }}
+      />
+    );
+  }
 
   if (status.type === "sent") {
     return (

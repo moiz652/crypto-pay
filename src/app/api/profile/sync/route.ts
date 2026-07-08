@@ -74,7 +74,7 @@ export async function POST(req: Request) {
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .upsert(upsertPayload, { onConflict: "privy_user_id" })
-    .select("id, username, wallet_address, display_name")
+    .select("id, username, wallet_address, display_name, acknowledged_irreversibility_at")
     .single();
 
   if (error) {

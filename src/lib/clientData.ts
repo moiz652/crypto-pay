@@ -12,6 +12,7 @@ export type Profile = {
   username: string | null;
   wallet_address: string | null;
   display_name?: string | null;
+  acknowledged_irreversibility_at?: string | null;
 };
 
 export type SentTransfer = {
